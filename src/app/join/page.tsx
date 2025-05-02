@@ -22,6 +22,7 @@ function JoinPageContent() {
   const createParticipantMutation =
     api.participant.createOrGetParticipant.useMutation();
   const updateAvatarUrlMutation = api.participant.updateAvatarUrl.useMutation();
+  const setUserPasswordMutation = api.participant.setUserPassword.useMutation();
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
@@ -118,60 +119,18 @@ function JoinPageContent() {
         throw new Error("Participant email not found");
       }
 
-      // 1. Try to sign in first to check if user exists
-      const { data: signInData, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email: participantData.email,
-          password: password,
-        });
+      // 1. Use our server-side procedure to set the password for the user
+      // This uses the admin API and will work even if the user already exists
+      const passwordResult = await setUserPasswordMutation.mutateAsync({
+        email: participantData.email,
+        password: password,
+      });
 
-      let userId;
-
-      // If sign in fails, the user might not exist or password is incorrect
-      if (signInError) {
-        console.log(
-          "Sign in failed, attempting to update password or create user",
-        );
-
-        // Try to update password for existing user
-        const { data: updateData, error: updateError } =
-          await supabase.auth.updateUser({
-            password: password,
-          });
-
-        // If update fails, try to create a new user
-        if (updateError) {
-          console.log("Password update failed, attempting to create new user");
-
-          const { data: authData, error: authError } =
-            await supabase.auth.signUp({
-              email: participantData.email,
-              password: password,
-              options: {
-                data: {
-                  name: name,
-                },
-              },
-            });
-
-          if (authError) {
-            console.error("Error during signup:", authError);
-            throw new Error(`Authentication error: ${authError.message}`);
-          }
-
-          if (!authData.user) {
-            throw new Error("Failed to create user");
-          }
-
-          userId = authData.user.id;
-        } else {
-          // Password update succeeded
-          userId = updateData.user.id;
-        }
-      } else {
-        // Sign in succeeded, user exists
-        userId = signInData.user.id;
+      if (!passwordResult.success) {
+        throw new Error("Failed to set password");
       }
+
+      const userId = passwordResult.userId;
 
       // 2. Upload the photo to Supabase Storage if available
       let avatarUrl = null;
@@ -209,15 +168,14 @@ function JoinPageContent() {
         }
       }
 
-      // 4. Make sure user is signed in
-      const { error: finalSignInError } =
-        await supabase.auth.signInWithPassword({
-          email: participantData.email,
-          password: password,
-        });
+      // 4. Sign in the user with the new password
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: participantData.email,
+        password: password,
+      });
 
-      if (finalSignInError) {
-        console.error("Error signing in:", finalSignInError);
+      if (signInError) {
+        console.error("Error signing in:", signInError);
         // Continue anyway since we've updated the account
       }
 

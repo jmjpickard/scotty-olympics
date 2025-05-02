@@ -2,6 +2,7 @@ import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { db } from "~/server/db";
+import { supabaseAdmin } from "~/server/supabaseAdmin";
 
 export const participantRouter = createTRPCRouter({
   // Validate an invitation token
@@ -215,6 +216,73 @@ export const participantRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "An unexpected error occurred while updating avatar URL",
+        });
+      }
+    }),
+
+  // Set password for a participant by email
+  setUserPassword: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        password: z.string().min(6),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      try {
+        console.log(`Setting password for user with email: ${input.email}`);
+
+        // First, find the user by email
+        const { data: userData, error: userError } =
+          await supabaseAdmin.auth.admin.listUsers();
+
+        if (userError) {
+          console.error("Error listing users:", userError);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to find user",
+          });
+        }
+
+        // Find the user with matching email
+        const user = userData.users.find(
+          (u) => u.email?.toLowerCase() === input.email.toLowerCase(),
+        );
+
+        if (!user) {
+          console.error(`User with email ${input.email} not found`);
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found",
+          });
+        }
+
+        // Update the user's password
+        const { error: updateError } =
+          await supabaseAdmin.auth.admin.updateUserById(user.id, {
+            password: input.password,
+          });
+
+        if (updateError) {
+          console.error("Error updating user password:", updateError);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to update password",
+          });
+        }
+
+        return {
+          success: true,
+          userId: user.id,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        console.error("Unexpected error setting user password:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "An unexpected error occurred while setting the password",
         });
       }
     }),
