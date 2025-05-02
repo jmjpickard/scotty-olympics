@@ -7,7 +7,7 @@ import type { Database } from "~/lib/supabase/types";
 import ProfileContent from "./profileContent";
 
 type ProfilePageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export default async function ProfilePage({ params }: ProfilePageProps) {
@@ -36,9 +36,12 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     redirect("/auth");
   }
 
+  // Await the params Promise to get the id
+  const resolvedParams = await params;
+
   return (
     <HydrateClient>
-      <ProfileContent profileId={params.id} currentUser={user} />
+      <ProfileContent profileId={resolvedParams.id} currentUser={user} />
     </HydrateClient>
   );
 }

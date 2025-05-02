@@ -1,0 +1,89 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { api } from "~/trpc/react";
+import { createBrowserClient } from "~/lib/supabase/client";
+import { MessageList } from "./MessageList";
+import { MessageInput } from "./MessageInput";
+import type { User } from "@supabase/supabase-js";
+
+interface ChatBoxProps {
+  user: User | null;
+}
+
+export const ChatBox = ({ user }: ChatBoxProps) => {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [supabase] = useState(() => createBrowserClient());
+
+  // Query to fetch initial messages
+  const { data, isLoading } = api.message.getMessages.useQuery({
+    limit: 50,
+  });
+
+  // Get tRPC context for invalidation
+  const utils = api.useContext();
+
+  // Mutation to send a message
+  const sendMessageMutation = api.message.sendMessage.useMutation({
+    onSuccess: () => {
+      // No need to invalidate as we'll get the message via real-time
+    },
+  });
+
+  // Set up initial messages when data loads
+  useEffect(() => {
+    if (data?.messages) {
+      setMessages(data.messages);
+    }
+  }, [data]);
+
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!supabase) return;
+
+    const channel = supabase.channel("public:messages").on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+      },
+      (payload) => {
+        // Fetch the complete message with participant data
+        void utils.message.getMessages.fetch({ limit: 50 }).then((data) => {
+          if (data?.messages) {
+            setMessages(data.messages);
+          }
+        });
+      },
+    );
+
+    void channel.subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, utils]);
+
+  const handleSendMessage = (content: string) => {
+    if (!user) return;
+
+    void sendMessageMutation.mutate({
+      content,
+    });
+  };
+
+  return (
+    <div className="border-greek-gold/30 flex h-[500px] flex-col rounded-lg border bg-white/10 p-4 shadow-md">
+      <h2 className="greek-column-header mb-4 flex items-center text-2xl font-bold">
+        <span className="mr-2">💬</span> Olympic Chat
+      </h2>
+
+      <div className="flex-1 overflow-y-auto">
+        <MessageList messages={messages} isLoading={isLoading} />
+      </div>
+
+      <MessageInput onSendMessage={handleSendMessage} isDisabled={!user} />
+    </div>
+  );
+};

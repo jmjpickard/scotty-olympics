@@ -9,6 +9,7 @@ import { InviteForm } from "../_components/admin/InviteForm";
 import { ScoreEntryForm } from "../_components/admin/ScoreEntryForm";
 import { EventManagementForm } from "../_components/admin/EventManagementForm";
 import { AvatarUpload } from "../_components/user/AvatarUpload";
+import { ChatBox } from "../_components/chat/ChatBox";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js"; // Import User type
 
@@ -509,69 +510,8 @@ export default function OlympicsContent({
               )}
             </div>
 
-            {/* User Profile */}
-            <div className="border-greek-gold/30 rounded-lg border bg-white/10 p-6 shadow-md">
-              <h2 className="greek-column-header mb-4 flex items-center text-2xl font-bold">
-                <span className="mr-2">👤</span> Your Profile
-              </h2>
-              {/* Use the 'user' state */}
-              {!user ? (
-                <div className="py-8 text-center">
-                  <p className="mb-4 text-gray-300">
-                    Sign in to view and update your athlete profile.
-                  </p>
-                  <Link
-                    href="/auth"
-                    className="bg-greek-blue hover:bg-greek-blue-light inline-block rounded-md px-5 py-3 font-semibold shadow-md transition"
-                  >
-                    Sign In
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  <div className="rounded-md border border-white/10 bg-white/5 p-4">
-                    <p className="text-gray-300">
-                      Athlete:{" "}
-                      <span className="font-medium text-white">
-                        {userProfile?.name ?? user.email}
-                      </span>
-                    </p>
-                    <p className="mt-1 text-sm text-gray-400">
-                      ID:{" "}
-                      <span className="font-mono">
-                        {user.id.slice(0, 8)}...
-                      </span>
-                    </p>
-                  </div>
-
-                  {/* Avatar upload component */}
-                  {user && (
-                    <>
-                      <div className="mt-4">
-                        <h3 className="mb-3 text-lg font-semibold">
-                          Athlete Photo
-                        </h3>
-                        <AvatarUpload
-                          userId={user.id}
-                          currentAvatarUrl={userProfile?.avatarUrl ?? undefined}
-                        />
-                      </div>
-
-                      {userProfile && (
-                        <div className="mt-6 flex justify-center">
-                          <Link
-                            href={`/profile/${userProfile.id}`}
-                            className="bg-greek-blue hover:bg-greek-blue-light inline-flex items-center rounded-md px-4 py-2 font-medium transition-colors"
-                          >
-                            <span className="mr-2">👤</span> View Profile
-                          </Link>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* Chat Section - Replacing the User Profile */}
+            <ChatBox user={user} />
           </div>
 
           <div className="mt-10 text-center">

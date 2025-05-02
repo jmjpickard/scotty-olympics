@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
     provider = "postgresql"
-    url      = env("DATABASE_URL")
+    url      = env("DIRECT_URL")
 }
 
 model Event {
@@ -32,8 +32,20 @@ model Participant {
     inviteTokenExpiry DateTime? @map("invite_token_expiry") // When the invitation expires
     createdAt         DateTime  @default(now()) @map("created_at")
     scores            Score[] // Relation to Score model
+    messages          Message[] // Relation to Message model
 
     @@map("participants") // Maps model to the 'participants' table
+}
+
+model Message {
+    id            String   @id @default(uuid())
+    content       String
+    participantId String   @map("participant_id")
+    createdAt     DateTime @default(now()) @map("created_at")
+
+    participant Participant @relation(fields: [participantId], references: [id])
+
+    @@map("messages")
 }
 
 model Score {
