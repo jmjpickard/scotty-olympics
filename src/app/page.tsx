@@ -4,51 +4,60 @@ import { HydrateClient } from "~/trpc/server";
 export default async function Home() {
   return (
     <HydrateClient>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
+      <main className="bg-greek-gradient flex min-h-screen flex-col items-center justify-center text-white">
         <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-          {/* Title with laurel wreath */}
-          <h1 className="text-5xl font-extrabold tracking-tight text-center sm:text-[5rem]">
-            <span className="inline-block mb-2">🏛️</span><br />
-            Scotty <span className="text-[hsl(280,100%,70%)]">Olympics</span>
-          </h1>
-          
-          {/* Placeholder for Harry's image */}
-          <div className="relative w-72 h-72 sm:w-96 sm:h-96 mb-4 overflow-hidden rounded-full border-4 border-[hsl(280,100%,70%)] shadow-lg">
-            {/* Replace with actual Harry's image when available */}
-            <div className="absolute inset-0 flex items-center justify-center bg-white/10 text-center p-4">
-              <p className="text-lg font-semibold">
-                [Placeholder for Harry's Olympic photo]
-              </p>
+          {/* Greek column decoration */}
+          <div className="greek-column-header w-full max-w-4xl">
+            {/* Title with laurel wreath */}
+            <h1 className="laurel-decoration relative text-center text-5xl font-extrabold tracking-tight sm:text-[5rem]">
+              <span className="mb-2 inline-block">🏛️</span>
+              <br />
+              Scotty <span className="text-greek-gold">Olympics</span>
+            </h1>
+          </div>
+
+          {/* Placeholder for Harry&apos;s image */}
+          <div className="border-greek-gold relative mb-4 h-72 w-72 overflow-hidden rounded-full border-4 shadow-lg sm:h-96 sm:w-96">
+            {/* Replace with actual Harry&apos;s image when available */}
+            <div className="absolute inset-0 flex items-center justify-center bg-white/10 p-4 text-center">
+              <img
+                src="/harry.png"
+                alt="Harry"
+                className="h-24 w-24 rounded-full object-cover"
+              />
             </div>
           </div>
-          
+
           {/* Hero text */}
-          <p className="text-xl text-center max-w-2xl mb-6 text-white/80">
-            Join the most prestigious sporting event in Scotty's realm. Compete for glory, honor, and bragging rights!
+          <p className="mb-6 max-w-2xl text-center text-xl text-white/80">
+            Join the most prestigious sporting event in Scotty&apos;s realm.
+            Compete for glory, honor, and bragging rights!
           </p>
-          
+
           {/* CTA Buttons with improved styling */}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 max-w-3xl w-full">
+          <div className="grid w-full max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8">
             <Link
-              className="flex flex-col gap-4 rounded-xl bg-gradient-to-r from-amber-600/70 to-amber-700/70 p-6 shadow-lg hover:from-amber-500/70 hover:to-amber-600/70 transition-all transform hover:scale-105 border border-amber-500/30"
+              className="border-greek-gold/30 from-greek-blue to-greek-blue-dark hover:bg-greek-blue flex transform flex-col gap-4 rounded-xl border bg-gradient-to-r p-6 shadow-lg transition-all hover:scale-105"
               href="/olympics"
             >
-              <h3 className="text-2xl font-bold flex items-center">
+              <h3 className="flex items-center text-2xl font-bold">
                 <span className="mr-2">🏆</span> Enter the Games
               </h3>
               <div className="text-lg">
-                Check out the events, scores, and leaderboard for the Scotty Olympics.
+                Check out the events, scores, and leaderboard for the Scotty
+                Olympics.
               </div>
             </Link>
             <Link
-              className="flex flex-col gap-4 rounded-xl bg-gradient-to-r from-purple-600/70 to-purple-700/70 p-6 shadow-lg hover:from-purple-500/70 hover:to-purple-600/70 transition-all transform hover:scale-105 border border-purple-500/30"
+              className="border-greek-gold/30 bg-marble-texture text-greek-blue-dark flex transform flex-col gap-4 rounded-xl border p-6 shadow-lg transition-all hover:scale-105"
               href="/auth"
             >
-              <h3 className="text-2xl font-bold flex items-center">
+              <h3 className="flex items-center text-2xl font-bold">
                 <span className="mr-2">🏅</span> Join as Athlete
               </h3>
               <div className="text-lg">
-                Sign in to view your profile, update your avatar, and track your Olympic journey.
+                Sign in to view your profile, update your avatar, and track your
+                Olympic journey.
               </div>
             </Link>
           </div>

@@ -20,7 +20,7 @@ export const emailService = {
     name: string | null | undefined,
     inviteUrl: string,
   ) {
-    const recipientName = name || email.split("@")[0];
+    const recipientName = name ?? email.split("@")[0];
 
     try {
       const { data, error } = await resend.emails.send({

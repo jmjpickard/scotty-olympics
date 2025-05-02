@@ -3,6 +3,14 @@
 import { useState } from "react";
 import { api } from "~/trpc/react";
 
+// Define Event type based on the properties used in the component
+interface Event {
+  id: string;
+  name: string;
+  description?: string | null;
+  order?: number | null;
+}
+
 /**
  * Form component for admin to manage events (add, edit, delete)
  * Only visible to admin users
@@ -41,7 +49,7 @@ export const EventManagementForm = () => {
       setMessage({ text: "Event created successfully", type: "success" });
       setIsSubmitting(false);
       resetForm();
-      refetchEvents();
+      void refetchEvents();
     },
     onError: (error) => {
       setMessage({ text: error.message, type: "error" });
@@ -55,7 +63,7 @@ export const EventManagementForm = () => {
       setMessage({ text: "Event updated successfully", type: "success" });
       setIsSubmitting(false);
       resetForm();
-      refetchEvents();
+      void refetchEvents();
     },
     onError: (error) => {
       setMessage({ text: error.message, type: "error" });
@@ -69,7 +77,7 @@ export const EventManagementForm = () => {
       setMessage({ text: "Event deleted successfully", type: "success" });
       setShowDeleteConfirm(false);
       setEventToDelete(null);
-      refetchEvents();
+      void refetchEvents();
     },
     onError: (error) => {
       setMessage({ text: error.message, type: "error" });
@@ -91,12 +99,12 @@ export const EventManagementForm = () => {
   /**
    * Sets up the form for editing an existing event
    */
-  const handleEditEvent = (event: any) => {
+  const handleEditEvent = (event: Event) => {
     setFormMode("edit");
     setCurrentEventId(event.id);
     setName(event.name);
-    setDescription(event.description || "");
-    setOrder(event.order);
+    setDescription(event.description ?? "");
+    setOrder(event.order ?? undefined);
     setMessage(null);
     // Scroll to form
     document
@@ -107,7 +115,7 @@ export const EventManagementForm = () => {
   /**
    * Initiates the delete confirmation for an event
    */
-  const handleDeleteClick = (event: any) => {
+  const handleDeleteClick = (event: Event) => {
     setEventToDelete({ id: event.id, name: event.name });
     setShowDeleteConfirm(true);
     setMessage(null);
@@ -147,7 +155,7 @@ export const EventManagementForm = () => {
       // Create new event
       createEventMutation.mutate({
         name,
-        description: description || undefined,
+        description: description ?? undefined,
         order: orderValue,
       });
     } else {
@@ -156,7 +164,7 @@ export const EventManagementForm = () => {
         updateEventMutation.mutate({
           id: currentEventId,
           name,
-          description: description || undefined,
+          description: description ?? undefined,
           order: orderValue,
         });
       }
@@ -290,10 +298,12 @@ export const EventManagementForm = () => {
             <input
               id="event-order"
               type="number"
-              value={order === undefined ? "" : order}
+              value={order ?? ""}
               onChange={(e) =>
                 setOrder(
-                  e.target.value === "" ? undefined : parseInt(e.target.value),
+                  e.target.value === ""
+                    ? undefined
+                    : parseInt(e.target.value, 10),
                 )
               }
               className="w-full rounded-md bg-white/20 px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
@@ -355,8 +365,8 @@ export const EventManagementForm = () => {
               Confirm Delete
             </h3>
             <p className="mb-6 text-gray-300">
-              Are you sure you want to delete the event "{eventToDelete.name}"?
-              This action cannot be undone.
+              Are you sure you want to delete the event &quot;
+              {eventToDelete.name}&quot;? This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
               <button

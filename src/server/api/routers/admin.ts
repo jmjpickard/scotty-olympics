@@ -41,7 +41,7 @@ export const adminRouter = createTRPCRouter({
         }
 
         // Generate invitation URL with token
-        const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/join?token=${inviteToken}`;
+        const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/join?token=${inviteToken}`;
 
         // For development/testing purposes, log the invitation URL
         console.log(`[inviteParticipant] Invitation URL: ${inviteUrl}`);

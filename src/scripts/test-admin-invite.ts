@@ -35,7 +35,7 @@ async function testAdminInvite() {
     console.log(`Created participant: ${participant.id}`);
 
     // Generate invitation URL
-    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/join?token=${inviteToken}`;
+    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/join?token=${inviteToken}`;
     console.log(`Invitation URL: ${inviteUrl}`);
 
     // For testing purposes, we'll try to create a user in Supabase Auth

@@ -6,23 +6,107 @@ import { db } from "~/server/db";
 async function main() {
   console.log("Seeding database...");
 
-  // Clean up existing posts
-  console.log("Cleaning up existing posts...");
-  await db.post.deleteMany({});
+  // Clean up existing data
+  console.log("Cleaning up existing scores...");
+  await db.score.deleteMany({});
 
-  // Create a new post
-  console.log("Creating new post...");
-  const newPost = await db.post.create({
-    data: {
-      name: "Test Post",
-    },
-  });
-  console.log("Created post:", newPost);
+  console.log("Cleaning up existing participants...");
+  await db.participant.deleteMany({});
 
-  // Verify we can read it back
-  console.log("Verifying post can be retrieved...");
-  const posts = await db.post.findMany();
-  console.log("Retrieved posts:", posts);
+  console.log("Cleaning up existing events...");
+  await db.event.deleteMany({});
+
+  // Create sample events
+  console.log("Creating sample events...");
+  const events = await Promise.all([
+    db.event.create({
+      data: {
+        name: "100m Sprint",
+        description: "A sprint race over 100 meters",
+        order: 1,
+      },
+    }),
+    db.event.create({
+      data: {
+        name: "Long Jump",
+        description: "A jumping competition measuring distance",
+        order: 2,
+      },
+    }),
+    db.event.create({
+      data: {
+        name: "Swimming",
+        description: "A 50m freestyle swimming race",
+        order: 3,
+      },
+    }),
+  ]);
+  console.log("Created events:", events);
+
+  // Create sample participants
+  console.log("Creating sample participants...");
+  const participants = await Promise.all([
+    db.participant.create({
+      data: {
+        name: "John Doe",
+        email: "john@example.com",
+        isAdmin: false,
+      },
+    }),
+    db.participant.create({
+      data: {
+        name: "Jane Smith",
+        email: "jane@example.com",
+        isAdmin: false,
+      },
+    }),
+    db.participant.create({
+      data: {
+        name: "Admin User",
+        email: "admin@example.com",
+        isAdmin: true,
+      },
+    }),
+  ]);
+  console.log("Created participants:", participants);
+
+  // Create sample scores
+  console.log("Creating sample scores...");
+  const scores = await Promise.all([
+    db.score.create({
+      data: {
+        participantId: participants[0].id,
+        eventId: events[0].id,
+        rank: 1,
+        points: 10,
+      },
+    }),
+    db.score.create({
+      data: {
+        participantId: participants[1].id,
+        eventId: events[0].id,
+        rank: 2,
+        points: 8,
+      },
+    }),
+    db.score.create({
+      data: {
+        participantId: participants[0].id,
+        eventId: events[1].id,
+        rank: 2,
+        points: 8,
+      },
+    }),
+    db.score.create({
+      data: {
+        participantId: participants[1].id,
+        eventId: events[1].id,
+        rank: 1,
+        points: 10,
+      },
+    }),
+  ]);
+  console.log("Created scores:", scores);
 
   console.log("Seeding complete!");
 }
@@ -32,6 +116,6 @@ main()
     console.error("Error during seeding:", e);
     process.exit(1);
   })
-  .finally(async () => {
-    await db.$disconnect();
+  .finally(() => {
+    void db.$disconnect();
   });

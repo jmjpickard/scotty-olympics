@@ -41,7 +41,7 @@ export const CameraCapture = ({ onPhotoCapture }: CameraCaptureProps) => {
       }
     };
 
-    startCamera();
+    void startCamera();
 
     // Cleanup function to stop the camera when component unmounts
     return () => {

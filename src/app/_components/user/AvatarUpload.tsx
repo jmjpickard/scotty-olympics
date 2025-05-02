@@ -22,7 +22,7 @@ export const AvatarUpload = ({
     type: "success" | "error";
   } | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(
-    currentAvatarUrl || null,
+    currentAvatarUrl ?? null,
   );
 
   // Mutation to update avatar URL in the database
@@ -61,7 +61,7 @@ export const AvatarUpload = ({
     setPreviewUrl(objectUrl);
 
     // Upload file
-    handleUpload(file);
+    void handleUpload(file);
   };
 
   /**
@@ -114,7 +114,7 @@ export const AvatarUpload = ({
         .getPublicUrl(filePath);
 
       // Update user profile with new avatar URL
-      updateAvatarMutation.mutate({ avatarPath: filePath });
+      void updateAvatarMutation.mutate({ avatarPath: filePath });
     } catch (error) {
       console.error("Upload error:", error);
       setMessage({

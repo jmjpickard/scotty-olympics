@@ -32,7 +32,7 @@ export default function JoinPage() {
 
   // Query to validate the token
   const tokenValidation = api.participant.validateInviteToken.useQuery(
-    { token: token || "" },
+    { token: token ?? "" },
     {
       enabled: !!token,
       retry: false,
@@ -52,7 +52,7 @@ export default function JoinPage() {
       console.error("Token validation error:", tokenValidation.error);
       setIsValidToken(false);
       setError(
-        tokenValidation.error.message ||
+        tokenValidation.error.message ??
           "Invalid invitation link. Please contact the administrator for a new invitation.",
       );
     }
@@ -96,7 +96,7 @@ export default function JoinPage() {
         return;
       }
       setError(null);
-      handleCompleteSignup();
+      void handleCompleteSignup();
     }
   };
 
@@ -124,10 +124,10 @@ export default function JoinPage() {
       // Here we would create the user in Supabase Auth
 
       // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 1500));
 
       // Redirect to Olympics page
-      router.push("/olympics");
+      void router.push("/olympics");
     } catch (err) {
       console.error("Error during signup:", err);
       setError("An error occurred during signup. Please try again.");
@@ -141,22 +141,22 @@ export default function JoinPage() {
       case 0:
         return (
           <div className="text-center">
-            <div className="relative mx-auto mb-6 h-48 w-48 overflow-hidden rounded-full border-4 border-[hsl(280,100%,70%)] shadow-lg">
-              {/* Replace with actual Harry's image when available */}
+            <div className="border-greek-gold relative mx-auto mb-6 h-48 w-48 overflow-hidden rounded-full border-4 shadow-lg">
+              {/* Replace with actual Harry&apos;s image when available */}
               <div className="absolute inset-0 flex items-center justify-center bg-white/10 p-4 text-center">
-                <p className="text-lg font-semibold">[Harry's Photo]</p>
+                <p className="text-lg font-semibold">[Harry&apos;s Photo]</p>
               </div>
             </div>
             <h2 className="mb-4 text-2xl font-bold">
               Welcome to Scotty Olympics!
             </h2>
             <p className="mb-6">
-              You've been invited to join the most prestigious sporting event in
-              Scotty's realm.
+              You&apos;ve been invited to join the most prestigious sporting
+              event in Scotty&apos;s realm.
             </p>
             <button
               onClick={handleNextStep}
-              className="w-full rounded-md bg-purple-600 px-4 py-2 font-medium transition-colors hover:bg-purple-700"
+              className="bg-greek-blue hover:bg-greek-blue-light w-full rounded-md px-4 py-2 font-medium transition-colors"
             >
               Join as Participant
             </button>
@@ -183,7 +183,7 @@ export default function JoinPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-md bg-white/20 px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                className="focus:ring-greek-gold w-full rounded-md bg-white/20 px-3 py-2 text-white focus:ring-2 focus:outline-none"
                 placeholder="Enter your name"
                 required
               />
@@ -195,7 +195,7 @@ export default function JoinPage() {
 
             <button
               onClick={handleNextStep}
-              className="w-full rounded-md bg-purple-600 px-4 py-2 font-medium transition-colors hover:bg-purple-700"
+              className="bg-greek-blue hover:bg-greek-blue-light w-full rounded-md px-4 py-2 font-medium transition-colors"
             >
               Continue
             </button>
@@ -206,13 +206,13 @@ export default function JoinPage() {
         return (
           <div>
             <h2 className="mb-4 text-2xl font-bold">Take Your Photo</h2>
-            <p className="mb-6">Let's capture your Olympic spirit!</p>
+            <p className="mb-6">Let&apos;s capture your Olympic spirit!</p>
 
             <CameraCapture
               onPhotoCapture={(photoBlob) => {
                 setPhoto(photoBlob);
                 // Automatically proceed to next step after capturing photo
-                setTimeout(() => handleNextStep(), 1000);
+                void setTimeout(() => handleNextStep(), 1000);
               }}
             />
 
@@ -220,7 +220,7 @@ export default function JoinPage() {
               <div className="mt-4">
                 <button
                   onClick={handleNextStep}
-                  className="w-full rounded-md bg-purple-600 px-4 py-2 font-medium transition-colors hover:bg-purple-700"
+                  className="bg-greek-blue hover:bg-greek-blue-light w-full rounded-md px-4 py-2 font-medium transition-colors"
                 >
                   Continue
                 </button>
@@ -249,7 +249,7 @@ export default function JoinPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-md bg-white/20 px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                className="focus:ring-greek-gold w-full rounded-md bg-white/20 px-3 py-2 text-white focus:ring-2 focus:outline-none"
                 placeholder="Enter a password"
                 required
               />
@@ -267,8 +267,8 @@ export default function JoinPage() {
               disabled={isLoading}
               className={`w-full rounded-md px-4 py-2 font-medium transition-colors ${
                 isLoading
-                  ? "cursor-not-allowed bg-purple-400"
-                  : "bg-purple-600 hover:bg-purple-700"
+                  ? "bg-greek-blue-light/70 cursor-not-allowed"
+                  : "bg-greek-blue hover:bg-greek-blue-light"
               }`}
             >
               {isLoading ? "Creating Account..." : "Complete Sign Up"}
@@ -284,18 +284,18 @@ export default function JoinPage() {
   // Show error if token is invalid
   if (!isValidToken) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] p-4">
-        <div className="w-full max-w-md rounded-lg bg-white/10 p-8 shadow-xl backdrop-blur-sm">
-          <h1 className="mb-6 text-center text-3xl font-bold text-white">
+      <div className="bg-greek-gradient flex min-h-screen flex-col items-center justify-center p-4">
+        <div className="border-greek-gold/30 w-full max-w-md rounded-lg border bg-white/10 p-8 shadow-xl backdrop-blur-sm">
+          <h1 className="greek-column-header mb-6 text-center text-3xl font-bold text-white">
             Invalid Invitation
           </h1>
           <div className="mb-6 rounded bg-red-500/30 p-3">
-            {error ||
+            {error ??
               "Invalid invitation link. Please contact the administrator for a new invitation."}
           </div>
           <Link
             href="/"
-            className="block w-full rounded-md bg-purple-600 px-4 py-2 text-center font-medium transition-colors hover:bg-purple-700"
+            className="bg-greek-blue hover:bg-greek-blue-light block w-full rounded-md px-4 py-2 text-center font-medium transition-colors"
           >
             Return to Home
           </Link>
@@ -305,10 +305,10 @@ export default function JoinPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] p-4">
-      <div className="w-full max-w-md rounded-lg bg-white/10 p-8 shadow-xl backdrop-blur-sm">
-        <h1 className="mb-6 text-center text-3xl font-bold text-white">
-          Scotty Olympics
+    <div className="bg-greek-gradient flex min-h-screen flex-col items-center justify-center p-4">
+      <div className="border-greek-gold/30 w-full max-w-md rounded-lg border bg-white/10 p-8 shadow-xl backdrop-blur-sm">
+        <h1 className="greek-column-header mb-6 text-center text-3xl font-bold text-white">
+          Scotty <span className="text-greek-gold">Olympics</span>
         </h1>
 
         {/* Progress indicator */}
@@ -322,7 +322,7 @@ export default function JoinPage() {
             </div>
             <div className="h-2 w-full rounded-full bg-gray-700">
               <div
-                className="h-2 rounded-full bg-purple-600"
+                className="bg-greek-gold h-2 rounded-full"
                 style={{ width: `${(step / 3) * 100}%` }}
               ></div>
             </div>

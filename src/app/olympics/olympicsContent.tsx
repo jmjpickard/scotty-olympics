@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { createBrowserClient } from "~/lib/supabase/client";
@@ -10,12 +11,33 @@ import { EventManagementForm } from "../_components/admin/EventManagementForm";
 import { AvatarUpload } from "../_components/user/AvatarUpload";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js"; // Import User type
-import type { RealtimeChannel } from "@supabase/supabase-js"; // Import RealtimeChannel type
+
+// Define participant profile type based on Prisma schema
+export interface ParticipantProfile {
+  id: string;
+  userId?: string | null;
+  name?: string | null;
+  email: string;
+  avatarUrl?: string | null;
+  isAdmin: boolean;
+  inviteToken?: string | null;
+  inviteTokenExpiry?: Date | null;
+  createdAt?: Date;
+}
+
+// Define leaderboard entry type
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+interface LeaderboardEntry {
+  id: string;
+  name?: string | null;
+  avatarUrl?: string | null;
+  totalPoints: number;
+}
 
 // Define props interface
 interface OlympicsContentProps {
   initialUser: User | null;
-  initialProfile: any | null; // Use a more specific type if available for profile
+  initialProfile: ParticipantProfile | null;
 }
 
 /**
@@ -29,11 +51,12 @@ export default function OlympicsContent({
   const [supabase] = useState(() => createBrowserClient());
   // Initialize state based on props from Server Component
   const [user, setUser] = useState<User | null>(initialUser);
-  const [isAdmin, setIsAdmin] = useState(initialProfile?.isAdmin || false);
-  const [userProfile, setUserProfile] = useState<any | null>(initialProfile);
+  const [isAdmin, setIsAdmin] = useState(initialProfile?.isAdmin ?? false);
+  const [userProfile, setUserProfile] = useState<ParticipantProfile | null>(
+    initialProfile,
+  );
   // isLoading might not be needed if initial state is always provided,
   // but keep it for onAuthStateChange updates for now.
-  const [isLoading, setIsLoading] = useState(false);
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
   const router = useRouter();
 
@@ -59,7 +82,7 @@ export default function OlympicsContent({
     api.participant.createOrGetParticipant.useMutation({
       onSuccess: (data) => {
         setUserProfile(data);
-        setIsAdmin(data?.isAdmin || false);
+        setIsAdmin(data?.isAdmin ?? false);
         setShowWelcomeMessage(true);
 
         // Hide welcome message after 5 seconds
@@ -81,10 +104,17 @@ export default function OlympicsContent({
     if (!supabase) return;
 
     // Define a function to handle score changes
-    const handleScoreChange = (payload: any) => {
-      console.log("Score change received!", payload);
+    const handleScoreChange = (payload: {
+      new: Record<string, unknown>;
+      old: Record<string, unknown>;
+    }): void => {
+      // Type-safe logging by explicitly accessing properties
+      console.log("Score change received!", {
+        new: payload.new,
+        old: payload.old,
+      });
       // Invalidate the leaderboard query to trigger a refetch
-      utils.score.getLeaderboardData.invalidate();
+      void utils.score.getLeaderboardData.invalidate();
     };
 
     // Create a channel specific to this subscription
@@ -98,12 +128,14 @@ export default function OlympicsContent({
           table: "scores", // Specifically listen to the scores table
         },
         handleScoreChange, // Callback function
-      )
-      .subscribe();
+      );
+
+    // Subscribe to the channel
+    void channel.subscribe();
 
     // Cleanup function to remove the channel subscription when the component unmounts
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
   }, [supabase, utils]); // Dependencies: run effect if supabase client or utils change
 
@@ -112,40 +144,43 @@ export default function OlympicsContent({
     console.log("useEffect");
     let isMounted = true;
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log("onAuthStateChange");
-      if (!isMounted) return;
+    // Handle auth state changes
+    const authListener = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        console.log("onAuthStateChange");
+        if (!isMounted) return;
 
-      const currentUser = session?.user ?? null;
-      setUser(currentUser); // Update user state
+        const currentUser = session?.user ?? null;
+        setUser(currentUser); // Update user state
 
-      if (currentUser) {
-        // User is logged in, ensure participant record exists via mutation
-        // The mutation handles checking if the user exists and creates if not.
-        createParticipantMutation.mutate({
-          userId: currentUser.id,
-          email: currentUser.email || "", // Provide email
-          name: currentUser.user_metadata?.full_name || currentUser.email, // Provide name
-        });
-      } else {
-        // User is logged out, clear profile and admin status
-        setUserProfile(null);
-        setIsAdmin(false);
-      }
+        if (currentUser) {
+          // User is logged in, ensure participant record exists via mutation
+          // The mutation handles checking if the user exists and creates if not.
+          void createParticipantMutation.mutate({
+            userId: currentUser.id,
+            email: currentUser.email ?? "", // Provide email
+            name:
+              (currentUser.user_metadata?.full_name as string) ??
+              currentUser.email, // Provide name
+          });
+        } else {
+          // User is logged out, clear profile and admin status
+          setUserProfile(null);
+          setIsAdmin(false);
+        }
 
-      // Refresh router cache on auth state changes
-      if (_event === "SIGNED_IN" || _event === "SIGNED_OUT") {
-        router.refresh();
-      }
-    });
+        // Refresh router cache on auth state changes
+        if (_event === "SIGNED_IN" || _event === "SIGNED_OUT") {
+          void router.refresh();
+        }
+      },
+    );
 
     return () => {
       isMounted = false;
-      subscription?.unsubscribe();
+      authListener.data.subscription?.unsubscribe();
     };
-  }, [supabase, router]); // Removed createParticipantMutation from dependencies
+  }, [supabase, router, createParticipantMutation]); // Added createParticipantMutation to dependencies
 
   /**
    * Handles user sign out
@@ -153,14 +188,14 @@ export default function OlympicsContent({
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      router.refresh();
+      void router.refresh();
     } catch (error) {
       console.error("Error signing out:", error);
     }
   };
 
   return (
-    <main className="flex min-h-screen flex-col overflow-x-hidden bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
+    <main className="bg-greek-gradient flex min-h-screen flex-col overflow-x-hidden text-white">
       <div className="container mx-auto px-4 py-12 md:py-16">
         <div className="relative z-10">
           {/* Welcome message notification */}
@@ -190,10 +225,11 @@ export default function OlympicsContent({
             </div>
           )}
 
-          <div className="mb-12 flex flex-col items-center justify-between gap-6 border-b border-white/10 pb-6 sm:flex-row">
+          <div className="border-greek-gold/30 mb-12 flex flex-col items-center justify-between gap-6 border-b pb-6 sm:flex-row">
             <div>
-              <h1 className="flex items-center text-center text-4xl font-extrabold tracking-tight sm:text-left sm:text-5xl">
-                <span className="mr-3 text-3xl">🏛️</span> Scotty Olympics
+              <h1 className="greek-column-header flex items-center text-center text-4xl font-extrabold tracking-tight sm:text-left sm:text-5xl">
+                <span className="mr-3 text-3xl">🏛️</span> Scotty{" "}
+                <span className="text-greek-gold">Olympics</span>
               </h1>
               <p className="mt-2 max-w-md text-center text-sm text-gray-300 sm:text-left sm:text-base">
                 The ultimate competition of skill, strategy, and sportsmanship
@@ -220,7 +256,7 @@ export default function OlympicsContent({
               ) : (
                 <Link
                   href="/auth"
-                  className="rounded-md bg-purple-600 px-4 py-2 font-semibold text-white shadow-sm transition hover:bg-purple-500"
+                  className="bg-greek-blue hover:bg-greek-blue-light rounded-md px-4 py-2 font-semibold text-white shadow-sm transition"
                 >
                   Sign In
                 </Link>
@@ -230,11 +266,11 @@ export default function OlympicsContent({
 
           {/* Admin Section - Only visible to admin */}
           {isAdmin && (
-            <div className="mb-12 rounded-lg border border-purple-500/30 bg-purple-900/20 p-6 shadow-lg">
-              <h2 className="mb-4 flex items-center text-2xl font-bold">
+            <div className="border-greek-gold/30 bg-greek-blue-dark/40 mb-12 rounded-lg border p-6 shadow-lg">
+              <h2 className="greek-column-header mb-4 flex items-center text-2xl font-bold">
                 <span className="mr-2">⚙️</span> Admin Controls
               </h2>
-              <p className="mb-6 text-sm text-purple-300">
+              <p className="text-greek-white/80 mb-6 text-sm">
                 As an admin, you can invite new athletes, update competition
                 scores, and manage events.
               </p>
@@ -248,8 +284,8 @@ export default function OlympicsContent({
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {/* Leaderboard */}
-            <div className="rounded-lg border border-white/10 bg-white/10 p-6 shadow-md">
-              <h2 className="mb-4 flex items-center text-2xl font-bold">
+            <div className="border-greek-gold/30 rounded-lg border bg-white/10 p-6 shadow-md">
+              <h2 className="greek-column-header mb-4 flex items-center text-2xl font-bold">
                 <span className="mr-2">🏆</span> Leaderboard
               </h2>
               {isLoadingLeaderboard ? (
@@ -289,13 +325,13 @@ export default function OlympicsContent({
                         let medalEmoji = "";
 
                         if (index === 0) {
-                          medalClass = "bg-amber-600/30 font-bold"; // Gold
+                          medalClass = "bg-greek-gold/30 font-bold"; // Gold
                           medalEmoji = "🥇";
                         } else if (index === 1) {
                           medalClass = "bg-gray-400/30 font-bold"; // Silver
                           medalEmoji = "🥈";
                         } else if (index === 2) {
-                          medalClass = "bg-amber-800/30 font-bold"; // Bronze
+                          medalClass = "bg-greek-terracotta/30 font-bold"; // Bronze
                           medalEmoji = "🥉";
                         }
 
@@ -309,24 +345,22 @@ export default function OlympicsContent({
                             </td>
                             <td className="px-3 py-2 text-sm whitespace-nowrap">
                               <div className="flex items-center">
-                                {participant.avatarUrl ? (
-                                  <img
-                                    src={participant.avatarUrl}
-                                    alt={participant.name || "Participant"}
-                                    className="mr-3 h-8 w-8 rounded-full border-2 border-white/20 object-cover"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).src =
-                                        "/default-avatar.png";
-                                    }}
-                                  />
-                                ) : (
-                                  <img
-                                    src="/default-avatar.png"
-                                    alt="Default avatar"
-                                    className="mr-3 h-8 w-8 rounded-full border-2 border-white/20 object-cover"
-                                  />
-                                )}
-                                {participant.name || "Anonymous"}
+                                <Image
+                                  src={
+                                    participant.avatarUrl ??
+                                    "/default-avatar.png"
+                                  }
+                                  alt={participant.name ?? "Participant"}
+                                  className="mr-3 rounded-full border-2 border-white/20 object-cover"
+                                  width={32}
+                                  height={32}
+                                  onError={(e) => {
+                                    // Handle image load error
+                                    (e.target as HTMLImageElement).src =
+                                      "/default-avatar.png";
+                                  }}
+                                />
+                                {participant.name ?? "Anonymous"}
                               </div>
                             </td>
                             <td className="px-3 py-2 text-right text-sm font-semibold whitespace-nowrap">
@@ -346,8 +380,8 @@ export default function OlympicsContent({
             </div>
 
             {/* Events */}
-            <div className="rounded-lg border border-white/10 bg-white/10 p-6 shadow-md">
-              <h2 className="mb-4 flex items-center text-2xl font-bold">
+            <div className="border-greek-gold/30 rounded-lg border bg-white/10 p-6 shadow-md">
+              <h2 className="greek-column-header mb-4 flex items-center text-2xl font-bold">
                 <span className="mr-2">🏃‍♂️</span> Events
               </h2>
               {isLoadingEvents ? (
@@ -369,10 +403,10 @@ export default function OlympicsContent({
                   {events.map((event, index) => (
                     <li
                       key={event.id}
-                      className="rounded-md border border-white/10 bg-white/5 p-4 transition hover:bg-white/10"
+                      className="border-greek-gold/30 rounded-md border bg-white/5 p-4 transition hover:bg-white/10"
                     >
                       <div className="flex items-start">
-                        <div className="mr-3 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-purple-800 font-bold text-white">
+                        <div className="bg-greek-blue mr-3 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full font-bold text-white">
                           {index + 1}
                         </div>
                         <div>
@@ -395,8 +429,8 @@ export default function OlympicsContent({
             </div>
 
             {/* User Profile */}
-            <div className="rounded-lg border border-white/10 bg-white/10 p-6 shadow-md">
-              <h2 className="mb-4 flex items-center text-2xl font-bold">
+            <div className="border-greek-gold/30 rounded-lg border bg-white/10 p-6 shadow-md">
+              <h2 className="greek-column-header mb-4 flex items-center text-2xl font-bold">
                 <span className="mr-2">👤</span> Your Profile
               </h2>
               {/* Use the 'user' state */}
@@ -407,7 +441,7 @@ export default function OlympicsContent({
                   </p>
                   <Link
                     href="/auth"
-                    className="inline-block rounded-md bg-purple-600 px-5 py-3 font-semibold shadow-md transition hover:bg-purple-500"
+                    className="bg-greek-blue hover:bg-greek-blue-light inline-block rounded-md px-5 py-3 font-semibold shadow-md transition"
                   >
                     Sign In
                   </Link>
@@ -418,7 +452,7 @@ export default function OlympicsContent({
                     <p className="text-gray-300">
                       Athlete:{" "}
                       <span className="font-medium text-white">
-                        {userProfile?.name || user.email}
+                        {userProfile?.name ?? user.email}
                       </span>
                     </p>
                     <p className="mt-1 text-sm text-gray-400">
@@ -437,7 +471,7 @@ export default function OlympicsContent({
                       </h3>
                       <AvatarUpload
                         userId={user.id}
-                        currentAvatarUrl={userProfile?.avatarUrl}
+                        currentAvatarUrl={userProfile?.avatarUrl ?? undefined}
                       />
                     </div>
                   )}

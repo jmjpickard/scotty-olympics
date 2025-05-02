@@ -169,7 +169,7 @@ export const ScoreEntryForm = () => {
             </option>
             {participants?.map((participant) => (
               <option key={participant.id} value={participant.id}>
-                {participant.name || "Anonymous"}
+                {participant.name ?? "Anonymous"}
               </option>
             ))}
           </select>

@@ -30,14 +30,14 @@ export const scoreRouter = createTRPCRouter({
       // 3. Aggregate Scores
       const pointTotals = new Map<string, number>();
       scores.forEach((score) => {
-        const currentTotal = pointTotals.get(score.participantId) || 0;
+        const currentTotal = pointTotals.get(score.participantId) ?? 0;
         pointTotals.set(score.participantId, currentTotal + score.points);
       });
 
       // 4. Combine Data
       const leaderboardData = participants.map((participant) => ({
         ...participant,
-        totalPoints: pointTotals.get(participant.id) || 0,
+        totalPoints: pointTotals.get(participant.id) ?? 0,
       }));
 
       // 5. Sort
