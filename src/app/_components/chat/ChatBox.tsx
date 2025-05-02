@@ -7,12 +7,24 @@ import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import type { User } from "@supabase/supabase-js";
 
+// Define the Message interface
+interface Message {
+  id: string;
+  content: string;
+  createdAt: Date;
+  participant: {
+    id: string;
+    name: string | null;
+    avatarUrl: string | null;
+  };
+}
+
 interface ChatBoxProps {
   user: User | null;
 }
 
 export const ChatBox = ({ user }: ChatBoxProps) => {
-  const [messages, setMessages] = useState<string[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [supabase] = useState(() => createBrowserClient());
 
   // Query to fetch initial messages
