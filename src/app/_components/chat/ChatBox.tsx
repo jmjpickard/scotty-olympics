@@ -12,7 +12,7 @@ interface ChatBoxProps {
 }
 
 export const ChatBox = ({ user }: ChatBoxProps) => {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<string[]>([]);
   const [supabase] = useState(() => createBrowserClient());
 
   // Query to fetch initial messages
