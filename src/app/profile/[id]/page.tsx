@@ -6,11 +6,11 @@ import { redirect } from "next/navigation";
 import type { Database } from "~/lib/supabase/types";
 import ProfileContent from "./profileContent";
 
-export default async function ProfilePage({
-  params,
-}: {
+type ProfilePageProps = {
   params: { id: string };
-}) {
+};
+
+export default async function ProfilePage({ params }: ProfilePageProps) {
   // Await the cookies() function call
   const cookieStore = await cookies();
   const supabase = createServerClient<Database>(
