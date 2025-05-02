@@ -78,12 +78,21 @@ export default function OlympicsContent({
     initialProfile,
   );
 
+  // Track if we've already checked admin status for the current user
+  const adminCheckRef = useRef<string | null>(null);
+
   // Check admin status when user changes
   useEffect(() => {
-    console.log("[Client] Current admin status:", isAdmin);
+    // Skip if no user or if we've already checked this user
+    if (!user || adminCheckRef.current === user.id) return;
+
+    console.log("[Client] Checking admin status for user:", user.id);
+
+    // Mark this user as checked
+    adminCheckRef.current = user.id;
 
     // Force admin status if email matches admin email
-    if (user?.email && process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+    if (user.email && process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
       const isEmailMatch =
         user.email.toLowerCase() ===
         process.env.NEXT_PUBLIC_ADMIN_EMAIL.toLowerCase();
@@ -95,7 +104,7 @@ export default function OlympicsContent({
         setIsAdmin(true);
       }
     }
-  }, [user]); // Only run when user changes, removing isAdmin from dependencies to prevent infinite loop
+  }, [user]); // Only run when user changes to prevent infinite loops
   // isLoading might not be needed if initial state is always provided,
   // but keep it for onAuthStateChange updates for now.
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
@@ -180,11 +189,12 @@ export default function OlympicsContent({
     };
   }, [supabase, utils]); // Dependencies: run effect if supabase client or utils change
 
+  // Track if we've already created a participant for the current user
+  const participantCreatedRef = useRef<string | null>(null);
+
   // Listen for auth changes and ensure participant record exists
   useEffect(() => {
     let isMounted = true;
-    // Track if we've already initiated participant creation to prevent duplicates
-    let participantCreationInitiated = false;
 
     // Handle auth state changes
     const authListener = supabase.auth.onAuthStateChange(
@@ -194,38 +204,47 @@ export default function OlympicsContent({
         const currentUser = session?.user ?? null;
         setUser(currentUser); // Update user state
 
-        if (currentUser && !participantCreationInitiated && !userProfile) {
-          // Set flag to prevent multiple creation attempts
-          participantCreationInitiated = true;
+        if (currentUser && participantCreatedRef.current !== currentUser.id) {
+          // Check if we need to create a participant for this user
+          const needsParticipant =
+            !userProfile || userProfile.userId !== currentUser.id;
 
-          // User is logged in, ensure participant record exists via mutation
-          // The mutation handles checking if the user exists and creates if not.
-          try {
-            const participantData = await createParticipantMutation.mutateAsync(
-              {
-                userId: currentUser.id,
-                email: currentUser.email ?? "", // Provide email
-                name:
-                  (currentUser.user_metadata?.full_name as string) ??
-                  currentUser.email, // Provide name
-              },
+          if (needsParticipant) {
+            console.log(
+              "[Client] Creating participant for user:",
+              currentUser.id,
             );
 
-            // Explicitly set isAdmin from the returned participant data
-            if (participantData) {
-              setIsAdmin(participantData.isAdmin);
-              console.log("Admin status set:", participantData.isAdmin);
+            // Set flag to prevent multiple creation attempts
+            participantCreatedRef.current = currentUser.id;
+
+            // User is logged in, ensure participant record exists via mutation
+            try {
+              const participantData =
+                await createParticipantMutation.mutateAsync({
+                  userId: currentUser.id,
+                  email: currentUser.email ?? "", // Provide email
+                  name:
+                    (currentUser.user_metadata?.full_name as string) ??
+                    currentUser.email, // Provide name
+                });
+
+              // Explicitly set isAdmin from the returned participant data
+              if (participantData) {
+                setIsAdmin(participantData.isAdmin);
+                console.log("Admin status set:", participantData.isAdmin);
+              }
+            } catch (error) {
+              console.error("Failed to create participant:", error);
+              // Reset flag if creation fails to allow retry
+              participantCreatedRef.current = null;
             }
-          } catch (error) {
-            console.error("Failed to create participant:", error);
-            // Reset flag if creation fails to allow retry
-            participantCreationInitiated = false;
           }
         } else if (!currentUser) {
           // User is logged out, clear profile and admin status
           setUserProfile(null);
           setIsAdmin(false);
-          participantCreationInitiated = false;
+          participantCreatedRef.current = null;
         }
 
         // Refresh router cache on auth state changes
@@ -239,7 +258,7 @@ export default function OlympicsContent({
       isMounted = false;
       authListener.data.subscription?.unsubscribe();
     };
-  }, [supabase, router, createParticipantMutation, userProfile]); // Added userProfile to dependencies
+  }, [supabase, router, createParticipantMutation]); // Removed userProfile from dependencies
 
   /**
    * Handles user sign out
