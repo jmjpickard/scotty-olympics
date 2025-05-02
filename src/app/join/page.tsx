@@ -135,7 +135,7 @@ function JoinPageContent() {
       // 2. Upload the photo to Supabase Storage if available
       let avatarUrl = null;
       if (photo) {
-        const fileName = `avatar-${userId}-${Date.now()}.jpg`;
+        const fileName = `${userId}/avatar-${Date.now()}.jpg`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("avatars")
           .upload(fileName, photo);
@@ -147,6 +147,7 @@ function JoinPageContent() {
             .from("avatars")
             .getPublicUrl(fileName);
           avatarUrl = urlData.publicUrl;
+          console.log(`[Join] Got public URL: ${avatarUrl}`);
         }
       }
 

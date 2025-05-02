@@ -113,8 +113,11 @@ export const AvatarUpload = ({
         .from("avatars")
         .getPublicUrl(filePath);
 
+      const publicUrl = urlData.publicUrl;
+      console.log(`[handleUpload] Got public URL: ${publicUrl}`);
+
       // Update user profile with new avatar URL
-      void updateAvatarMutation.mutate({ avatarPath: filePath });
+      void updateAvatarMutation.mutate({ avatarUrl: publicUrl });
     } catch (error) {
       console.error("Upload error:", error);
       setMessage({

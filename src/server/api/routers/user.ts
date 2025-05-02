@@ -5,7 +5,7 @@ import { db } from "~/server/db";
 
 export const userRouter = createTRPCRouter({
   updateAvatarUrl: protectedProcedure
-    .input(z.object({ avatarPath: z.string() }))
+    .input(z.object({ avatarUrl: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
         // Get the current user ID from the authenticated session
@@ -19,15 +19,8 @@ export const userRouter = createTRPCRouter({
         }
 
         console.log(
-          `[updateAvatarUrl] START - User: ${userId}, Path: ${input.avatarPath}`,
+          `[updateAvatarUrl] START - User: ${userId}, URL: ${input.avatarUrl}`,
         );
-
-        // Get the public URL for the uploaded file
-        const { data: urlData } = ctx.supabase.storage
-          .from("avatars")
-          .getPublicUrl(input.avatarPath);
-
-        const publicUrl = urlData.publicUrl;
 
         // Update the participant record in the database using Prisma
         const data = await db.participant.update({
@@ -35,14 +28,14 @@ export const userRouter = createTRPCRouter({
             userId: userId,
           },
           data: {
-            avatarUrl: publicUrl,
+            avatarUrl: input.avatarUrl,
           },
         });
 
         return {
           success: true,
           message: "Avatar updated successfully",
-          avatarUrl: publicUrl,
+          avatarUrl: input.avatarUrl,
         };
       } catch (error) {
         if (error instanceof TRPCError) {
