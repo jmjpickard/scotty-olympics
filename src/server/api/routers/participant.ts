@@ -155,7 +155,7 @@ export const participantRouter = createTRPCRouter({
             userId: input.userId,
             email: emailToUse,
             name: input.name ?? input.email.split("@")[0] ?? "Athlete",
-            isAdmin: isAdmin || false,
+            isAdmin: isAdmin ? true : false,
           },
         });
 
