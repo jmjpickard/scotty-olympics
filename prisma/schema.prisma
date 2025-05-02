@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DIRECT_URL")
+}
+
+model Event {
+    id          String   @id @default(uuid())
+    name        String   @unique
+    description String?
+    order       Int?
+    createdAt   DateTime @default(now()) @map("created_at")
+    scores      Score[] // Relation to Score model
+
+    @@map("events") // Maps model to the 'events' table
+}
+
+model Participant {
+    id                String    @id @default(uuid())
+    userId            String?   @unique @map("user_id") // Corresponds to Supabase auth.users.id
+    name              String?
+    email             String    @unique // Used for invites/linking
+    avatarUrl         String?   @map("avatar_url")
+    isAdmin           Boolean   @default(false) @map("is_admin")
+    inviteToken       String?   @unique @map("invite_token") // Token for invitation link
+    inviteTokenExpiry DateTime? @map("invite_token_expiry") // When the invitation expires
+    createdAt         DateTime  @default(now()) @map("created_at")
+    scores            Score[] // Relation to Score model
+
+    @@map("participants") // Maps model to the 'participants' table
+}
+
+model Score {
+    id            String   @id @default(uuid())
+    participantId String   @map("participant_id")
+    eventId       String   @map("event_id")
+    rank          Int
+    points        Int
+    createdAt     DateTime @default(now()) @map("created_at")
+    updatedAt     DateTime @updatedAt @map("updated_at") // Automatically updates timestamp
+
+    participant Participant @relation(fields: [participantId], references: [id])
+    event       Event       @relation(fields: [eventId], references: [id])
+
+    @@unique([participantId, eventId]) // Ensures unique score per participant per event
+    @@map("scores") // Maps model to the 'scores' table
+}
