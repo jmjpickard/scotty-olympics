@@ -422,7 +422,10 @@ export default function OlympicsContent({
                               {medalEmoji} {index + 1}
                             </td>
                             <td className="px-3 py-2 text-sm whitespace-nowrap">
-                              <div className="flex items-center">
+                              <Link
+                                href={`/profile/${participant.id}`}
+                                className="hover:text-greek-gold flex items-center transition-colors"
+                              >
                                 <Image
                                   src={
                                     participant.avatarUrl ??
@@ -439,7 +442,7 @@ export default function OlympicsContent({
                                   }}
                                 />
                                 {participant.name ?? "Anonymous"}
-                              </div>
+                              </Link>
                             </td>
                             <td className="px-3 py-2 text-right text-sm font-semibold whitespace-nowrap">
                               {participant.totalPoints}
@@ -543,15 +546,28 @@ export default function OlympicsContent({
 
                   {/* Avatar upload component */}
                   {user && (
-                    <div className="mt-4">
-                      <h3 className="mb-3 text-lg font-semibold">
-                        Athlete Photo
-                      </h3>
-                      <AvatarUpload
-                        userId={user.id}
-                        currentAvatarUrl={userProfile?.avatarUrl ?? undefined}
-                      />
-                    </div>
+                    <>
+                      <div className="mt-4">
+                        <h3 className="mb-3 text-lg font-semibold">
+                          Athlete Photo
+                        </h3>
+                        <AvatarUpload
+                          userId={user.id}
+                          currentAvatarUrl={userProfile?.avatarUrl ?? undefined}
+                        />
+                      </div>
+
+                      {userProfile && (
+                        <div className="mt-6 flex justify-center">
+                          <Link
+                            href={`/profile/${userProfile.id}`}
+                            className="bg-greek-blue hover:bg-greek-blue-light inline-flex items-center rounded-md px-4 py-2 font-medium transition-colors"
+                          >
+                            <span className="mr-2">👤</span> View Profile
+                          </Link>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}

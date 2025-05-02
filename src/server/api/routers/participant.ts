@@ -1,4 +1,8 @@
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import {
+  createTRPCRouter,
+  publicProcedure,
+  protectedProcedure,
+} from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { db } from "~/server/db";
@@ -226,7 +230,7 @@ export const participantRouter = createTRPCRouter({
             if (userError || !userData?.user?.email) {
               console.error(
                 `[Participant] Error or no email found for user:`,
-                userError || "No email",
+                userError ?? "No email",
               );
             } else {
               const email = userData.user.email;
@@ -367,6 +371,131 @@ export const participantRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "An unexpected error occurred while setting the password",
+        });
+      }
+    }),
+
+  // Get participant with their scores
+  getParticipantWithScores: publicProcedure
+    .input(
+      z.object({
+        participantId: z.string(),
+      }),
+    )
+    .query(async ({ input }) => {
+      try {
+        // Fetch participant data
+        const participant = await db.participant.findUnique({
+          where: {
+            id: input.participantId,
+          },
+          select: {
+            id: true,
+            userId: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+            isAdmin: true,
+            createdAt: true,
+          },
+        });
+
+        if (!participant) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Participant not found",
+          });
+        }
+
+        // Fetch scores with event details
+        const scores = await db.score.findMany({
+          where: {
+            participantId: input.participantId,
+          },
+          include: {
+            event: true,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
+
+        // Calculate total points
+        const totalPoints = scores.reduce(
+          (sum, score) => sum + score.points,
+          0,
+        );
+
+        return {
+          participant,
+          scores,
+          totalPoints,
+        };
+      } catch (error) {
+        console.error("Error fetching participant with scores:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            "An unexpected error occurred while fetching participant data",
+        });
+      }
+    }),
+
+  // Get participant's rank
+  getParticipantRank: publicProcedure
+    .input(
+      z.object({
+        participantId: z.string(),
+      }),
+    )
+    .query(async ({ input }) => {
+      try {
+        // Get all participants with their total points
+        const participants = await db.participant.findMany({
+          select: {
+            id: true,
+            scores: {
+              select: {
+                points: true,
+              },
+            },
+          },
+        });
+
+        // Calculate total points for each participant
+        const rankedParticipants = participants
+          .map((p) => ({
+            id: p.id,
+            totalPoints: p.scores.reduce((sum, score) => sum + score.points, 0),
+          }))
+          .sort((a, b) => b.totalPoints - a.totalPoints); // Sort by points descending
+
+        // Find the rank of the requested participant
+        const rank =
+          rankedParticipants.findIndex((p) => p.id === input.participantId) + 1;
+
+        if (rank === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Participant not found in rankings",
+          });
+        }
+
+        return {
+          rank,
+          totalParticipants: participants.length,
+        };
+      } catch (error) {
+        console.error("Error getting participant rank:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "An unexpected error occurred while calculating rank",
         });
       }
     }),
