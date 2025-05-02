@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { createBrowserClient } from "~/lib/supabase/client";
 import { InviteForm } from "../_components/admin/InviteForm";
@@ -48,11 +48,27 @@ export default function OlympicsContent({
   initialUser,
   initialProfile,
 }: OlympicsContentProps) {
-  console.log(
-    "[Client] Initializing OlympicsContent with initialProfile:",
-    initialProfile,
-  );
-  console.log("[Client] Initial admin status:", initialProfile?.isAdmin);
+  // Only log once during initialization, not on every render
+  const hasLoggedRef = useRef(false);
+
+  if (!hasLoggedRef.current) {
+    console.log(
+      "[Client] Initializing OlympicsContent with initialProfile:",
+      initialProfile,
+    );
+    console.log("[Client] Initial admin status:", initialProfile?.isAdmin);
+    console.log(
+      "[Client] Admin email from env:",
+      process.env.NEXT_PUBLIC_ADMIN_EMAIL,
+    );
+    console.log("[Client] User email:", initialUser?.email);
+    console.log(
+      "[Client] Email match?",
+      initialUser?.email?.toLowerCase() ===
+        process.env.NEXT_PUBLIC_ADMIN_EMAIL?.toLowerCase(),
+    );
+    hasLoggedRef.current = true;
+  }
 
   const [supabase] = useState(() => createBrowserClient());
   // Initialize state based on props from Server Component
@@ -62,10 +78,24 @@ export default function OlympicsContent({
     initialProfile,
   );
 
-  // Log admin status whenever it changes
+  // Log admin status on mount and whenever it changes
   useEffect(() => {
-    console.log("[Client] Admin status changed:", isAdmin);
-  }, [isAdmin]);
+    console.log("[Client] Current admin status:", isAdmin);
+
+    // Force admin status if email matches admin email
+    if (user?.email && process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+      const isEmailMatch =
+        user.email.toLowerCase() ===
+        process.env.NEXT_PUBLIC_ADMIN_EMAIL.toLowerCase();
+
+      if (isEmailMatch && !isAdmin) {
+        console.log(
+          "[Client] Email matches admin email but isAdmin is false. Forcing admin status.",
+        );
+        setIsAdmin(true);
+      }
+    }
+  }, [isAdmin, user]);
   // isLoading might not be needed if initial state is always provided,
   // but keep it for onAuthStateChange updates for now.
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);

@@ -75,17 +75,51 @@ export default async function OlympicsPage() {
     }
   }
 
+  // Log the raw profile data to verify admin status
+  if (initialProfile) {
+    console.log("[Server] Raw profile data:", {
+      id: initialProfile.id,
+      user_id: initialProfile.user_id,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      is_admin: (initialProfile as any).is_admin,
+      email: initialProfile.email,
+    });
+  }
+
+  // Map the Supabase data (snake_case) to our ParticipantProfile interface (camelCase)
+  // Use type assertion to handle the snake_case properties
+  const mappedProfile = initialProfile
+    ? {
+        id: initialProfile.id,
+        userId: initialProfile.user_id,
+        name: initialProfile.name,
+        email: initialProfile.email,
+        avatarUrl: initialProfile.avatar_url,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        isAdmin: (initialProfile as any).is_admin === true,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        inviteToken: (initialProfile as any).invite_token,
+        inviteTokenExpiry:
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          (initialProfile as any).invite_token_expiry
+            ? // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              new Date((initialProfile as any).invite_token_expiry)
+            : null,
+        createdAt: initialProfile.created_at
+          ? new Date(initialProfile.created_at)
+          : undefined,
+      }
+    : null;
+
+  console.log(
+    "[Server] Mapped profile with admin status:",
+    mappedProfile?.isAdmin,
+  );
+
   return (
     <HydrateClient>
       {/* Pass initial user and profile data to the client component */}
-      <OlympicsContent
-        initialUser={user}
-        initialProfile={
-          initialProfile as unknown as
-            | import("./olympicsContent").ParticipantProfile
-            | null
-        }
-      />
+      <OlympicsContent initialUser={user} initialProfile={mappedProfile} />
     </HydrateClient>
   );
 }
