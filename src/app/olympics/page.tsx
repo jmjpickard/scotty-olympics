@@ -40,25 +40,30 @@ export default async function OlympicsPage() {
     | Database["public"]["Tables"]["participants"]["Row"]
     | null = null;
   if (user) {
-    // Simply fetch the existing profile - don't create one on the server side
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const { data: profileData, error: profileError } = await supabase
-      .from("participants")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    if (profileError && profileError.code !== "PGRST116") {
-      console.error("[Server] Profile fetch error:", profileError);
-    } else if (profileData) {
+    try {
+      // Simply fetch the existing profile - don't create one on the server side
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      initialProfile = profileData;
-      // If profile exists, we're done
-    } else {
-      // Profile will be created on the client side via tRPC
-      console.log(
-        "[Server] No participant record found. Will be created client-side.",
-      );
+      const { data: profileData, error: profileError } = await supabase
+        .from("participants")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profileError) {
+        if (profileError.code !== "PGRST116") {
+          console.error("[Server] Profile fetch error:", profileError);
+        } else {
+          // Profile not found (PGRST116 is the "not found" error code)
+          console.log(
+            "[Server] No participant record found. Will be created client-side.",
+          );
+        }
+      } else if (profileData) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        initialProfile = profileData;
+      }
+    } catch (error) {
+      console.error("[Server] Unexpected error fetching profile:", error);
     }
   }
 

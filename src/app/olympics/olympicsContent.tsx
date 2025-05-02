@@ -141,32 +141,42 @@ export default function OlympicsContent({
 
   // Listen for auth changes and ensure participant record exists
   useEffect(() => {
-    console.log("useEffect");
     let isMounted = true;
+    // Track if we've already initiated participant creation to prevent duplicates
+    let participantCreationInitiated = false;
 
     // Handle auth state changes
     const authListener = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        console.log("onAuthStateChange");
         if (!isMounted) return;
 
         const currentUser = session?.user ?? null;
         setUser(currentUser); // Update user state
 
-        if (currentUser) {
+        if (currentUser && !participantCreationInitiated && !userProfile) {
+          // Set flag to prevent multiple creation attempts
+          participantCreationInitiated = true;
+
           // User is logged in, ensure participant record exists via mutation
           // The mutation handles checking if the user exists and creates if not.
-          void createParticipantMutation.mutate({
-            userId: currentUser.id,
-            email: currentUser.email ?? "", // Provide email
-            name:
-              (currentUser.user_metadata?.full_name as string) ??
-              currentUser.email, // Provide name
-          });
-        } else {
+          try {
+            await createParticipantMutation.mutateAsync({
+              userId: currentUser.id,
+              email: currentUser.email ?? "", // Provide email
+              name:
+                (currentUser.user_metadata?.full_name as string) ??
+                currentUser.email, // Provide name
+            });
+          } catch (error) {
+            console.error("Failed to create participant:", error);
+            // Reset flag if creation fails to allow retry
+            participantCreationInitiated = false;
+          }
+        } else if (!currentUser) {
           // User is logged out, clear profile and admin status
           setUserProfile(null);
           setIsAdmin(false);
+          participantCreationInitiated = false;
         }
 
         // Refresh router cache on auth state changes
@@ -180,7 +190,7 @@ export default function OlympicsContent({
       isMounted = false;
       authListener.data.subscription?.unsubscribe();
     };
-  }, [supabase, router, createParticipantMutation]); // Added createParticipantMutation to dependencies
+  }, [supabase, router, createParticipantMutation, userProfile]); // Added userProfile to dependencies
 
   /**
    * Handles user sign out
