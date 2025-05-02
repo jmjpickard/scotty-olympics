@@ -118,29 +118,65 @@ function JoinPageContent() {
         throw new Error("Participant email not found");
       }
 
-      // 1. Create the user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: participantData.email,
-        password: password,
-        options: {
-          data: {
-            name: name,
-          },
-        },
-      });
+      // 1. Try to sign in first to check if user exists
+      const { data: signInData, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: participantData.email,
+          password: password,
+        });
 
-      if (authError) {
-        throw authError;
-      }
+      let userId;
 
-      if (!authData.user) {
-        throw new Error("Failed to create user");
+      // If sign in fails, the user might not exist or password is incorrect
+      if (signInError) {
+        console.log(
+          "Sign in failed, attempting to update password or create user",
+        );
+
+        // Try to update password for existing user
+        const { data: updateData, error: updateError } =
+          await supabase.auth.updateUser({
+            password: password,
+          });
+
+        // If update fails, try to create a new user
+        if (updateError) {
+          console.log("Password update failed, attempting to create new user");
+
+          const { data: authData, error: authError } =
+            await supabase.auth.signUp({
+              email: participantData.email,
+              password: password,
+              options: {
+                data: {
+                  name: name,
+                },
+              },
+            });
+
+          if (authError) {
+            console.error("Error during signup:", authError);
+            throw new Error(`Authentication error: ${authError.message}`);
+          }
+
+          if (!authData.user) {
+            throw new Error("Failed to create user");
+          }
+
+          userId = authData.user.id;
+        } else {
+          // Password update succeeded
+          userId = updateData.user.id;
+        }
+      } else {
+        // Sign in succeeded, user exists
+        userId = signInData.user.id;
       }
 
       // 2. Upload the photo to Supabase Storage if available
       let avatarUrl = null;
       if (photo) {
-        const fileName = `avatar-${authData.user.id}-${Date.now()}.jpg`;
+        const fileName = `avatar-${userId}-${Date.now()}.jpg`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("avatars")
           .upload(fileName, photo);
@@ -159,7 +195,7 @@ function JoinPageContent() {
       if (token && participantData) {
         // Create or get participant
         await createParticipantMutation.mutateAsync({
-          userId: authData.user.id,
+          userId: userId,
           email: participantData.email,
           name: name,
         });
@@ -167,21 +203,22 @@ function JoinPageContent() {
         // Update avatar URL if available
         if (avatarUrl) {
           await updateAvatarUrlMutation.mutateAsync({
-            userId: authData.user.id,
+            userId: userId,
             avatarUrl: avatarUrl,
           });
         }
       }
 
-      // 4. Sign in the user
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: participantData.email,
-        password: password,
-      });
+      // 4. Make sure user is signed in
+      const { error: finalSignInError } =
+        await supabase.auth.signInWithPassword({
+          email: participantData.email,
+          password: password,
+        });
 
-      if (signInError) {
-        console.error("Error signing in:", signInError);
-        // Continue anyway since the account was created
+      if (finalSignInError) {
+        console.error("Error signing in:", finalSignInError);
+        // Continue anyway since we've updated the account
       }
 
       // Redirect to Olympics page
