@@ -4,13 +4,9 @@ import { HydrateClient } from "~/trpc/server";
 
 import { redirect } from "next/navigation";
 import type { Database } from "~/lib/supabase/types";
-import ProfileContent from "./profileContent";
+import ProfileWrapper from "./profileWrapper";
 
-type ProfilePageProps = {
-  params: Promise<{ id: string }>;
-};
-
-export default async function ProfilePage({ params }: ProfilePageProps) {
+export default async function ProfilePage() {
   // Await the cookies() function call
   const cookieStore = await cookies();
   const supabase = createServerClient<Database>(
@@ -36,12 +32,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     redirect("/auth");
   }
 
-  // Await the params Promise to get the id
-  const resolvedParams = await params;
-
   return (
     <HydrateClient>
-      <ProfileContent profileId={resolvedParams.id} currentUser={user} />
+      <ProfileWrapper currentUser={user} />
     </HydrateClient>
   );
 }
