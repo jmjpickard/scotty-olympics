@@ -140,17 +140,22 @@ function JoinPageContent() {
         console.log(`[Join] Generated filename: ${fileName}`);
 
         try {
+          // Explicitly await the upload operation
           const { data: uploadData, error: uploadError } =
             await supabase.storage.from("avatars").upload(fileName, photo);
 
           if (uploadError) {
             console.error("Error uploading avatar:", uploadError);
             console.error("Upload error details:", JSON.stringify(uploadError));
+            throw new Error(`Upload failed: ${uploadError.message}`);
           } else if (uploadData) {
             console.log("[Join] Upload successful:", uploadData);
-            const { data: urlData } = supabase.storage
+
+            // Explicitly await getting the public URL
+            const { data: urlData } = await supabase.storage
               .from("avatars")
               .getPublicUrl(fileName);
+
             avatarUrl = urlData.publicUrl;
             console.log(`[Join] Got public URL: ${avatarUrl}`);
           } else {
@@ -178,6 +183,7 @@ function JoinPageContent() {
             `[Join] Updating avatar URL for user ${userId} to ${avatarUrl}`,
           );
           try {
+            // Explicitly await the avatar URL update
             const avatarUpdateResult =
               await updateAvatarUrlMutation.mutateAsync({
                 userId: userId,
@@ -187,6 +193,9 @@ function JoinPageContent() {
               `[Join] Avatar URL update successful:`,
               avatarUpdateResult,
             );
+
+            // Add a small delay to ensure database update is complete
+            await new Promise((resolve) => setTimeout(resolve, 500));
           } catch (avatarError) {
             console.error(`[Join] Error updating avatar URL:`, avatarError);
             // Continue with the sign-up process even if avatar update fails
@@ -223,9 +232,12 @@ function JoinPageContent() {
         return (
           <div className="text-center">
             <div className="border-greek-gold relative mx-auto mb-6 h-48 w-48 overflow-hidden rounded-full border-4 shadow-lg">
-              {/* Replace with actual Harry&apos;s image when available */}
-              <div className="absolute inset-0 flex items-center justify-center bg-white/10 p-4 text-center">
-                <p className="text-lg font-semibold">[Harry&apos;s Photo]</p>
+              <div className="absolute inset-0 flex items-center justify-center bg-white/10">
+                <img
+                  src="/harry.png"
+                  alt="Harry"
+                  className="h-full w-full object-cover"
+                />
               </div>
             </div>
             <h2 className="mb-4 text-2xl font-bold">

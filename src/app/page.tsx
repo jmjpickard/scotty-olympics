@@ -18,12 +18,11 @@ export default async function Home() {
 
           {/* Placeholder for Harry&apos;s image */}
           <div className="border-greek-gold relative mb-4 h-72 w-72 overflow-hidden rounded-full border-4 shadow-lg sm:h-96 sm:w-96">
-            {/* Replace with actual Harry&apos;s image when available */}
-            <div className="absolute inset-0 flex items-center justify-center bg-white/10 p-4 text-center">
+            <div className="absolute inset-0 flex items-center justify-center bg-white/10">
               <img
                 src="/harry.png"
                 alt="Harry"
-                className="h-24 w-24 rounded-full object-cover"
+                className="h-full w-full object-cover"
               />
             </div>
           </div>
