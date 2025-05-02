@@ -78,7 +78,7 @@ export default function OlympicsContent({
     initialProfile,
   );
 
-  // Log admin status on mount and whenever it changes
+  // Check admin status when user changes
   useEffect(() => {
     console.log("[Client] Current admin status:", isAdmin);
 
@@ -95,7 +95,7 @@ export default function OlympicsContent({
         setIsAdmin(true);
       }
     }
-  }, [isAdmin, user]);
+  }, [user]); // Only run when user changes, removing isAdmin from dependencies to prevent infinite loop
   // isLoading might not be needed if initial state is always provided,
   // but keep it for onAuthStateChange updates for now.
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
