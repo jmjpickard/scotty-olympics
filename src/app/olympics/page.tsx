@@ -8,6 +8,13 @@ import type { Database } from "~/lib/supabase/types";
 import type { CookieOptions } from "@supabase/ssr"; // Import CookieOptions if needed for stubs
 import type { User } from "@supabase/supabase-js";
 
+// Extended type for participants table that includes fields not in the generated types
+type ParticipantRow = Database["public"]["Tables"]["participants"]["Row"] & {
+  is_admin: boolean;
+  invite_token?: string;
+  invite_token_expiry?: string;
+};
+
 export default async function OlympicsPage() {
   // Await the cookies() function call
   const cookieStore = await cookies();
@@ -36,14 +43,13 @@ export default async function OlympicsPage() {
   };
 
   // Fetch initial profile if user exists
-  let initialProfile:
-    | Database["public"]["Tables"]["participants"]["Row"]
-    | null = null;
+  let initialProfile: ParticipantRow | null = null;
   if (user) {
     try {
       console.log("[Server] Fetching profile for user:", user.id);
 
       // Simply fetch the existing profile - don't create one on the server side
+
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const { data: profileData, error: profileError } = await supabase
         .from("participants")
@@ -61,13 +67,10 @@ export default async function OlympicsPage() {
           );
         }
       } else if (profileData) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        initialProfile = profileData;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        initialProfile = profileData as ParticipantRow;
         console.log(
           "[Server] Found profile with admin status:",
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          profileData.is_admin,
+          (profileData as ParticipantRow).is_admin,
         );
       }
     } catch (error) {
@@ -80,14 +83,12 @@ export default async function OlympicsPage() {
     console.log("[Server] Raw profile data:", {
       id: initialProfile.id,
       user_id: initialProfile.user_id,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      is_admin: (initialProfile as any).is_admin,
+      is_admin: initialProfile.is_admin,
       email: initialProfile.email,
     });
   }
 
   // Map the Supabase data (snake_case) to our ParticipantProfile interface (camelCase)
-  // Use type assertion to handle the snake_case properties
   const mappedProfile = initialProfile
     ? {
         id: initialProfile.id,
@@ -95,16 +96,11 @@ export default async function OlympicsPage() {
         name: initialProfile.name,
         email: initialProfile.email,
         avatarUrl: initialProfile.avatar_url,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        isAdmin: (initialProfile as any).is_admin === true,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        inviteToken: (initialProfile as any).invite_token,
-        inviteTokenExpiry:
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          (initialProfile as any).invite_token_expiry
-            ? // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              new Date((initialProfile as any).invite_token_expiry)
-            : null,
+        isAdmin: initialProfile.is_admin === true,
+        inviteToken: initialProfile.invite_token,
+        inviteTokenExpiry: initialProfile.invite_token_expiry
+          ? new Date(initialProfile.invite_token_expiry)
+          : null,
         createdAt: initialProfile.created_at
           ? new Date(initialProfile.created_at)
           : undefined,
