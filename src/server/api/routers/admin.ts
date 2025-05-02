@@ -18,30 +18,53 @@ export const adminRouter = createTRPCRouter({
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7); // Token expires in 7 days
 
-        // Create participant entry with invitation token
-        try {
-          await db.participant.create({
-            data: {
+        // Check if participant with this email already exists
+        const existingParticipant = await db.participant.findUnique({
+          where: {
+            email: input.email,
+          },
+        });
+
+        if (existingParticipant) {
+          // Update existing participant with new invitation token
+          console.log(
+            `Participant with email ${input.email} already exists. Updating with new invitation token.`,
+          );
+          await db.participant.update({
+            where: {
               email: input.email,
-              // Extract name from email (optional)
-              name: input.email.split("@")[0],
+            },
+            data: {
               inviteToken,
               inviteTokenExpiry: expiresAt,
             },
           });
-        } catch (participantError) {
-          console.error(
-            "Failed to create participant entry:",
-            participantError,
-          );
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to create participant entry",
-          });
+        } else {
+          // Create new participant entry with invitation token
+          try {
+            await db.participant.create({
+              data: {
+                email: input.email,
+                // Extract name from email (optional)
+                name: input.email.split("@")[0],
+                inviteToken,
+                inviteTokenExpiry: expiresAt,
+              },
+            });
+          } catch (participantError) {
+            console.error(
+              "Failed to create participant entry:",
+              participantError,
+            );
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Failed to create participant entry",
+            });
+          }
         }
 
         // Generate invitation URL with token
-        const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/join?token=${inviteToken}`;
+        const inviteUrl = `https://scotty-olympics.vercel.app/join?token=${inviteToken}`;
 
         // For development/testing purposes, log the invitation URL
         console.log(`[inviteParticipant] Invitation URL: ${inviteUrl}`);

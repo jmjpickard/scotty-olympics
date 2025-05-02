@@ -5,7 +5,7 @@ import { emailService } from "~/server/email";
 
 /**
  * Test script to verify the admin invitation process
- * This script simulates the admin inviting a participant
+ * This script simulates the admin inviting a participant and re-inviting an existing participant
  */
 async function testAdminInvite() {
   console.log("Starting admin invitation test...");
@@ -14,6 +14,9 @@ async function testAdminInvite() {
     // Generate a test email with a timestamp to ensure uniqueness
     const testEmail = `jack.pickard+test${Date.now()}@hotmail.com`;
     console.log(`Test email: ${testEmail}`);
+
+    // Test Case 1: Create a new participant
+    console.log("\n--- Test Case 1: Create a new participant ---");
 
     // Generate a unique invitation token
     const inviteToken = randomUUID();
@@ -34,8 +37,32 @@ async function testAdminInvite() {
 
     console.log(`Created participant: ${participant.id}`);
 
+    // Test Case 2: Re-invite the same participant
+    console.log("\n--- Test Case 2: Re-invite the same participant ---");
+
+    // Generate a new invitation token
+    const newInviteToken = randomUUID();
+    const newExpiresAt = new Date();
+    newExpiresAt.setDate(newExpiresAt.getDate() + 7);
+
+    console.log(`Re-inviting participant with new token: ${newInviteToken}`);
+
+    // Update the existing participant with a new invitation token
+    const updatedParticipant = await db.participant.update({
+      where: {
+        email: testEmail,
+      },
+      data: {
+        inviteToken: newInviteToken,
+        inviteTokenExpiry: newExpiresAt,
+      },
+    });
+
+    console.log(`Updated participant: ${updatedParticipant.id}`);
+    console.log(`New invitation token: ${updatedParticipant.inviteToken}`);
+
     // Generate invitation URL
-    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/join?token=${inviteToken}`;
+    const inviteUrl = `https://scotty-olympics.vercel.app/join?token=${inviteToken}`;
     console.log(`Invitation URL: ${inviteUrl}`);
 
     // For testing purposes, we'll try to create a user in Supabase Auth
