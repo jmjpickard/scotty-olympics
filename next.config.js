@@ -10,6 +10,13 @@ const config = {
   // App Router is enabled by default in Next.js 15
   // Ensure no interference from Pages Router
   reactStrictMode: true,
+
+  // Configure image domains to allow Supabase storage URLs
+  images: {
+    domains: [
+      "phxbtunbketncixslxmq.supabase.co", // Supabase storage domain
+    ],
+  },
 };
 
 export default config;
