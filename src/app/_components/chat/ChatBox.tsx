@@ -62,29 +62,33 @@ export const ChatBox = ({ user }: ChatBoxProps) => {
         schema: "public",
         table: "messages",
       },
-      async (payload) => {
-        try {
-          // Get the new message ID from the payload
-          const newMessageId = payload.new.id as string;
+      (payload) => {
+        // Get the new message ID from the payload
+        const newMessageId = payload.new.id as string;
 
-          // Fetch just the new message with participant data
-          const newMessageData = await utils.message.getMessage.fetch({
+        // Fetch just the new message with participant data
+        void utils.message.getMessage
+          .fetch({
             messageId: newMessageId,
+          })
+          .then((newMessageData) => {
+            if (newMessageData) {
+              // Add the new message to the existing messages array
+              setMessages((prevMessages) => [...prevMessages, newMessageData]);
+            }
+          })
+          .catch((error) => {
+            console.error("Error handling new message:", error);
+
+            // Fallback: fetch all messages if there's an error
+            void utils.message.getMessages
+              .fetch({ limit: 50 })
+              .then((result) => {
+                if (result?.messages) {
+                  setMessages(result.messages);
+                }
+              });
           });
-
-          if (newMessageData) {
-            // Add the new message to the existing messages array
-            setMessages((prevMessages) => [...prevMessages, newMessageData]);
-          }
-        } catch (error) {
-          console.error("Error handling new message:", error);
-
-          // Fallback: fetch all messages if there's an error
-          const data = await utils.message.getMessages.fetch({ limit: 50 });
-          if (data?.messages) {
-            setMessages(data.messages);
-          }
-        }
       },
     );
 
