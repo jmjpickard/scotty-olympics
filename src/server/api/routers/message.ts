@@ -8,6 +8,39 @@ import {
 import { db } from "~/server/db";
 
 export const messageRouter = createTRPCRouter({
+  getMessage: publicProcedure
+    .input(
+      z.object({
+        messageId: z.string(),
+      }),
+    )
+    .query(async ({ input }) => {
+      const { messageId } = input;
+
+      const message = await db.message.findUnique({
+        where: {
+          id: messageId,
+        },
+        include: {
+          participant: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      });
+
+      if (!message) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Message not found",
+        });
+      }
+
+      return message;
+    }),
   getMessages: publicProcedure
     .input(
       z.object({

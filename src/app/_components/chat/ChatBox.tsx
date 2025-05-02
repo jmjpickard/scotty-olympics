@@ -37,8 +37,10 @@ export const ChatBox = ({ user }: ChatBoxProps) => {
 
   // Mutation to send a message
   const sendMessageMutation = api.message.sendMessage.useMutation({
-    onSuccess: () => {
-      // No need to invalidate as we'll get the message via real-time
+    onSuccess: (newMessage) => {
+      // Optimistically add the new message to the UI
+      // This will make the UI update immediately without waiting for the real-time update
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
     },
   });
 
@@ -60,13 +62,29 @@ export const ChatBox = ({ user }: ChatBoxProps) => {
         schema: "public",
         table: "messages",
       },
-      (payload) => {
-        // Fetch the complete message with participant data
-        void utils.message.getMessages.fetch({ limit: 50 }).then((data) => {
+      async (payload) => {
+        try {
+          // Get the new message ID from the payload
+          const newMessageId = payload.new.id as string;
+
+          // Fetch just the new message with participant data
+          const newMessageData = await utils.message.getMessage.fetch({
+            messageId: newMessageId,
+          });
+
+          if (newMessageData) {
+            // Add the new message to the existing messages array
+            setMessages((prevMessages) => [...prevMessages, newMessageData]);
+          }
+        } catch (error) {
+          console.error("Error handling new message:", error);
+
+          // Fallback: fetch all messages if there's an error
+          const data = await utils.message.getMessages.fetch({ limit: 50 });
           if (data?.messages) {
             setMessages(data.messages);
           }
-        });
+        }
       },
     );
 
