@@ -101,9 +101,24 @@ export const participantRouter = createTRPCRouter({
           where: {
             userId: input.userId,
           },
+          select: {
+            id: true,
+            userId: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+            isAdmin: true,
+            inviteToken: true,
+            inviteTokenExpiry: true,
+            createdAt: true,
+          },
         });
 
         if (existingParticipant) {
+          console.log(
+            "Found existing participant with admin status:",
+            existingParticipant.isAdmin,
+          );
           return existingParticipant;
         }
 
@@ -125,13 +140,22 @@ export const participantRouter = createTRPCRouter({
           emailToUse = `${emailToUse.split("@")[0]}+${randomSuffix}@${emailToUse.split("@")[1]}`;
         }
 
+        // Check if this email should be an admin (compare with env var)
+        const adminEmail = process.env.ADMIN_EMAIL;
+        const isAdmin =
+          adminEmail && input.email.toLowerCase() === adminEmail.toLowerCase();
+
+        console.log(
+          `Creating new participant with email: ${emailToUse}, admin status: ${isAdmin}`,
+        );
+
         // Create new participant
         const newParticipant = await db.participant.create({
           data: {
             userId: input.userId,
             email: emailToUse,
             name: input.name ?? input.email.split("@")[0] ?? "Athlete",
-            isAdmin: false,
+            isAdmin: isAdmin || false,
           },
         });
 

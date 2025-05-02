@@ -41,6 +41,8 @@ export default async function OlympicsPage() {
     | null = null;
   if (user) {
     try {
+      console.log("[Server] Fetching profile for user:", user.id);
+
       // Simply fetch the existing profile - don't create one on the server side
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const { data: profileData, error: profileError } = await supabase
@@ -61,6 +63,12 @@ export default async function OlympicsPage() {
       } else if (profileData) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         initialProfile = profileData;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        console.log(
+          "[Server] Found profile with admin status:",
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          profileData.is_admin,
+        );
       }
     } catch (error) {
       console.error("[Server] Unexpected error fetching profile:", error);

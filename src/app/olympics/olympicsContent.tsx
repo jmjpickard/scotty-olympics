@@ -48,6 +48,12 @@ export default function OlympicsContent({
   initialUser,
   initialProfile,
 }: OlympicsContentProps) {
+  console.log(
+    "[Client] Initializing OlympicsContent with initialProfile:",
+    initialProfile,
+  );
+  console.log("[Client] Initial admin status:", initialProfile?.isAdmin);
+
   const [supabase] = useState(() => createBrowserClient());
   // Initialize state based on props from Server Component
   const [user, setUser] = useState<User | null>(initialUser);
@@ -55,6 +61,11 @@ export default function OlympicsContent({
   const [userProfile, setUserProfile] = useState<ParticipantProfile | null>(
     initialProfile,
   );
+
+  // Log admin status whenever it changes
+  useEffect(() => {
+    console.log("[Client] Admin status changed:", isAdmin);
+  }, [isAdmin]);
   // isLoading might not be needed if initial state is always provided,
   // but keep it for onAuthStateChange updates for now.
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
@@ -160,13 +171,21 @@ export default function OlympicsContent({
           // User is logged in, ensure participant record exists via mutation
           // The mutation handles checking if the user exists and creates if not.
           try {
-            await createParticipantMutation.mutateAsync({
-              userId: currentUser.id,
-              email: currentUser.email ?? "", // Provide email
-              name:
-                (currentUser.user_metadata?.full_name as string) ??
-                currentUser.email, // Provide name
-            });
+            const participantData = await createParticipantMutation.mutateAsync(
+              {
+                userId: currentUser.id,
+                email: currentUser.email ?? "", // Provide email
+                name:
+                  (currentUser.user_metadata?.full_name as string) ??
+                  currentUser.email, // Provide name
+              },
+            );
+
+            // Explicitly set isAdmin from the returned participant data
+            if (participantData) {
+              setIsAdmin(participantData.isAdmin);
+              console.log("Admin status set:", participantData.isAdmin);
+            }
           } catch (error) {
             console.error("Failed to create participant:", error);
             // Reset flag if creation fails to allow retry
@@ -497,6 +516,62 @@ export default function OlympicsContent({
             >
               <span className="mr-2">🏠</span> Back to Home
             </Link>
+
+            {/* Debug button - only visible in development */}
+            {process.env.NODE_ENV !== "production" && (
+              <div className="mt-6 rounded-md border border-yellow-500/30 bg-yellow-900/20 p-4 text-left">
+                <h3 className="mb-2 text-lg font-semibold">
+                  Debug Information
+                </h3>
+                <pre className="overflow-auto rounded bg-black/30 p-2 text-xs">
+                  {JSON.stringify(
+                    {
+                      isAdmin,
+                      initialProfileIsAdmin: initialProfile?.isAdmin,
+                      userEmail: user?.email,
+                      userId: user?.id,
+                      userProfileId: userProfile?.id,
+                      adminEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL,
+                    },
+                    null,
+                    2,
+                  )}
+                </pre>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => {
+                      console.log("Current user:", user);
+                      console.log("Current profile:", userProfile);
+                      console.log("Admin status:", isAdmin);
+                      console.log(
+                        "Admin email:",
+                        process.env.NEXT_PUBLIC_ADMIN_EMAIL,
+                      );
+                      alert(`Admin status: ${isAdmin ? "YES" : "NO"}`);
+                    }}
+                    className="rounded bg-yellow-600 px-3 py-1 text-sm text-white hover:bg-yellow-500"
+                  >
+                    Log Debug Info
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsAdmin(true);
+                    }}
+                    className="rounded bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-500"
+                  >
+                    Force Admin: ON
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsAdmin(false);
+                    }}
+                    className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-500"
+                  >
+                    Force Admin: OFF
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
