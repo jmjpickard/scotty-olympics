@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { CameraCapture } from "~/app/_components/user/CameraCapture";
+import { createBrowserClient } from "~/lib/supabase/client";
 
 /**
  * Welcome page for participants who have been invited
@@ -15,6 +16,12 @@ function JoinPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const [supabase] = useState(() => createBrowserClient());
+
+  // Initialize the mutations at component level
+  const createParticipantMutation =
+    api.participant.createOrGetParticipant.useMutation();
+  const updateAvatarUrlMutation = api.participant.updateAvatarUrl.useMutation();
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
@@ -107,25 +114,75 @@ function JoinPageContent() {
     setError(null);
 
     try {
-      // In a real implementation, we would:
-      // 1. Validate the invitation token
-      // 2. Create the user in Supabase Auth
-      // 3. Upload the photo to Supabase Storage
-      // 4. Update the participant record with the user ID and avatar URL
-
-      // For demonstration purposes, we'll simulate a successful signup
-      // and redirect to the Olympics page
-
-      if (photo) {
-        console.log("Photo captured successfully, size:", photo.size);
-        // Here we would upload the photo to Supabase Storage
+      if (!participantData?.email) {
+        throw new Error("Participant email not found");
       }
 
-      console.log("Creating user with name:", name);
-      // Here we would create the user in Supabase Auth
+      // 1. Create the user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: participantData.email,
+        password: password,
+        options: {
+          data: {
+            name: name,
+          },
+        },
+      });
 
-      // Simulate API call delay
-      await new Promise<void>((resolve) => setTimeout(() => resolve(), 1500));
+      if (authError) {
+        throw authError;
+      }
+
+      if (!authData.user) {
+        throw new Error("Failed to create user");
+      }
+
+      // 2. Upload the photo to Supabase Storage if available
+      let avatarUrl = null;
+      if (photo) {
+        const fileName = `avatar-${authData.user.id}-${Date.now()}.jpg`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(fileName, photo);
+
+        if (uploadError) {
+          console.error("Error uploading avatar:", uploadError);
+        } else if (uploadData) {
+          const { data: urlData } = supabase.storage
+            .from("avatars")
+            .getPublicUrl(fileName);
+          avatarUrl = urlData.publicUrl;
+        }
+      }
+
+      // 3. Update the participant record with the user ID and avatar URL
+      if (token && participantData) {
+        // Create or get participant
+        await createParticipantMutation.mutateAsync({
+          userId: authData.user.id,
+          email: participantData.email,
+          name: name,
+        });
+
+        // Update avatar URL if available
+        if (avatarUrl) {
+          await updateAvatarUrlMutation.mutateAsync({
+            userId: authData.user.id,
+            avatarUrl: avatarUrl,
+          });
+        }
+      }
+
+      // 4. Sign in the user
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: participantData.email,
+        password: password,
+      });
+
+      if (signInError) {
+        console.error("Error signing in:", signInError);
+        // Continue anyway since the account was created
+      }
 
       // Redirect to Olympics page
       void router.push("/olympics");

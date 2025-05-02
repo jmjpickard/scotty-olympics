@@ -171,4 +171,51 @@ export const participantRouter = createTRPCRouter({
         });
       }
     }),
+
+  // Update participant avatar URL
+  updateAvatarUrl: publicProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        avatarUrl: z.string(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      try {
+        // Find participant by userId
+        const participant = await db.participant.findUnique({
+          where: {
+            userId: input.userId,
+          },
+        });
+
+        if (!participant) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Participant not found",
+          });
+        }
+
+        // Update avatar URL
+        const updatedParticipant = await db.participant.update({
+          where: {
+            userId: input.userId,
+          },
+          data: {
+            avatarUrl: input.avatarUrl,
+          },
+        });
+
+        return updatedParticipant;
+      } catch (error) {
+        console.error("Error updating participant avatar URL:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "An unexpected error occurred while updating avatar URL",
+        });
+      }
+    }),
 });
