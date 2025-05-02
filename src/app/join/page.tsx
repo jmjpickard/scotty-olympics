@@ -152,7 +152,7 @@ function JoinPageContent() {
             console.log("[Join] Upload successful:", uploadData);
 
             // Explicitly await getting the public URL
-            const { data: urlData } = await supabase.storage
+            const { data: urlData } = supabase.storage
               .from("avatars")
               .getPublicUrl(fileName);
 

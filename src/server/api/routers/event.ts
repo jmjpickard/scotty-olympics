@@ -8,6 +8,63 @@ import { z } from "zod";
 import { db } from "~/server/db";
 
 export const eventRouter = createTRPCRouter({
+  // Get event with scores
+  getEventWithScores: publicProcedure
+    .input(
+      z.object({
+        eventId: z.string().uuid("Invalid event ID"),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        // Get the event details
+        const event = await db.event.findUnique({
+          where: {
+            id: input.eventId,
+          },
+        });
+
+        if (!event) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Event not found",
+          });
+        }
+
+        // Get all scores for this event with participant information
+        const scores = await db.score.findMany({
+          where: {
+            eventId: input.eventId,
+          },
+          include: {
+            participant: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true,
+              },
+            },
+          },
+          orderBy: {
+            rank: "asc",
+          },
+        });
+
+        return {
+          event,
+          scores,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        console.error("Unexpected error fetching event with scores:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "An unexpected error occurred while fetching event data",
+        });
+      }
+    }),
   getAll: publicProcedure.query(async ({ ctx }) => {
     try {
       // Use Prisma to fetch all events

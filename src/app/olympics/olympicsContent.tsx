@@ -492,14 +492,27 @@ export default function OlympicsContent({
                           {index + 1}
                         </div>
                         <div>
-                          <h3 className="text-lg font-semibold">
-                            {event.name}
-                          </h3>
+                          <Link
+                            href={`/event/${event.id}`}
+                            className="hover:text-greek-gold transition-colors"
+                          >
+                            <h3 className="text-lg font-semibold">
+                              {event.name}
+                            </h3>
+                          </Link>
                           {event.description && (
                             <p className="mt-1 text-sm text-gray-300">
                               {event.description}
                             </p>
                           )}
+                          <div className="mt-2">
+                            <Link
+                              href={`/event/${event.id}`}
+                              className="text-greek-gold text-sm hover:underline"
+                            >
+                              View event details →
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     </li>
