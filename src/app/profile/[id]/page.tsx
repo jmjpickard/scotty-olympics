@@ -1,10 +1,10 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { HydrateClient } from "~/trpc/server";
-import ProfileContent from "./profileContent";
+
 import { redirect } from "next/navigation";
 import type { Database } from "~/lib/supabase/types";
-import type { User } from "@supabase/supabase-js";
+import ProfileContent from "./profileContent";
 
 export default async function ProfilePage({
   params,
