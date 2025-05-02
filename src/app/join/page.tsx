@@ -135,20 +135,32 @@ function JoinPageContent() {
       // 2. Upload the photo to Supabase Storage if available
       let avatarUrl = null;
       if (photo) {
+        console.log("[Join] Photo blob available, attempting to upload...");
         const fileName = `${userId}/avatar-${Date.now()}.jpg`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("avatars")
-          .upload(fileName, photo);
+        console.log(`[Join] Generated filename: ${fileName}`);
 
-        if (uploadError) {
-          console.error("Error uploading avatar:", uploadError);
-        } else if (uploadData) {
-          const { data: urlData } = supabase.storage
-            .from("avatars")
-            .getPublicUrl(fileName);
-          avatarUrl = urlData.publicUrl;
-          console.log(`[Join] Got public URL: ${avatarUrl}`);
+        try {
+          const { data: uploadData, error: uploadError } =
+            await supabase.storage.from("avatars").upload(fileName, photo);
+
+          if (uploadError) {
+            console.error("Error uploading avatar:", uploadError);
+            console.error("Upload error details:", JSON.stringify(uploadError));
+          } else if (uploadData) {
+            console.log("[Join] Upload successful:", uploadData);
+            const { data: urlData } = supabase.storage
+              .from("avatars")
+              .getPublicUrl(fileName);
+            avatarUrl = urlData.publicUrl;
+            console.log(`[Join] Got public URL: ${avatarUrl}`);
+          } else {
+            console.error("[Join] Upload completed but no data returned");
+          }
+        } catch (uploadErr) {
+          console.error("[Join] Exception during upload:", uploadErr);
         }
+      } else {
+        console.log("[Join] No photo blob available to upload");
       }
 
       // 3. Update the participant record with the user ID and avatar URL
@@ -162,10 +174,25 @@ function JoinPageContent() {
 
         // Update avatar URL if available
         if (avatarUrl) {
-          await updateAvatarUrlMutation.mutateAsync({
-            userId: userId,
-            avatarUrl: avatarUrl,
-          });
+          console.log(
+            `[Join] Updating avatar URL for user ${userId} to ${avatarUrl}`,
+          );
+          try {
+            const avatarUpdateResult =
+              await updateAvatarUrlMutation.mutateAsync({
+                userId: userId,
+                avatarUrl: avatarUrl,
+              });
+            console.log(
+              `[Join] Avatar URL update successful:`,
+              avatarUpdateResult,
+            );
+          } catch (avatarError) {
+            console.error(`[Join] Error updating avatar URL:`, avatarError);
+            // Continue with the sign-up process even if avatar update fails
+          }
+        } else {
+          console.log(`[Join] No avatar URL to update for user ${userId}`);
         }
       }
 

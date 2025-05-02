@@ -120,6 +120,20 @@ export const participantRouter = createTRPCRouter({
             "Found existing participant with admin status:",
             existingParticipant.isAdmin,
           );
+
+          // Update the name if provided and different from existing name
+          if (input.name && input.name !== existingParticipant.name) {
+            const updatedParticipant = await db.participant.update({
+              where: {
+                userId: input.userId,
+              },
+              data: {
+                name: input.name,
+              },
+            });
+            return updatedParticipant;
+          }
+
           return existingParticipant;
         }
 
@@ -183,30 +197,100 @@ export const participantRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       try {
+        console.log(
+          `[Participant] Updating avatar URL for user ${input.userId}`,
+        );
+        console.log(`[Participant] New avatar URL: ${input.avatarUrl}`);
+
         // Find participant by userId
-        const participant = await db.participant.findUnique({
+        let participant = await db.participant.findUnique({
           where: {
             userId: input.userId,
           },
         });
 
         if (!participant) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Participant not found",
-          });
+          console.error(
+            `[Participant] No participant found with userId: ${input.userId}`,
+          );
+
+          // Try to find the participant by looking up the user's email in Supabase
+          // and then finding the participant with that email
+          try {
+            console.log(
+              `[Participant] Attempting to find user in Supabase auth`,
+            );
+            const { data: userData, error: userError } =
+              await supabaseAdmin.auth.admin.getUserById(input.userId);
+
+            if (userError || !userData?.user?.email) {
+              console.error(
+                `[Participant] Error or no email found for user:`,
+                userError || "No email",
+              );
+            } else {
+              const email = userData.user.email;
+              console.log(
+                `[Participant] Found user email in Supabase: ${email}, looking for participant with this email`,
+              );
+
+              participant = await db.participant.findUnique({
+                where: {
+                  email: email,
+                },
+              });
+
+              if (participant) {
+                console.log(
+                  `[Participant] Found participant by email: ${participant.id}`,
+                );
+
+                // Update the userId field if it's not set
+                if (!participant.userId) {
+                  console.log(
+                    `[Participant] Updating participant with userId: ${input.userId}`,
+                  );
+                  participant = await db.participant.update({
+                    where: {
+                      id: participant.id,
+                    },
+                    data: {
+                      userId: input.userId,
+                    },
+                  });
+                }
+              }
+            }
+          } catch (lookupError) {
+            console.error(`[Participant] Error looking up user:`, lookupError);
+          }
+
+          // If we still don't have a participant, throw an error
+          if (!participant) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Participant not found",
+            });
+          }
         }
 
-        // Update avatar URL
+        console.log(
+          `[Participant] Found participant: ${participant.id}, current avatarUrl: ${participant.avatarUrl}`,
+        );
+
+        // Update avatar URL - use participant.id for the where clause to ensure we update the correct record
         const updatedParticipant = await db.participant.update({
           where: {
-            userId: input.userId,
+            id: participant.id,
           },
           data: {
             avatarUrl: input.avatarUrl,
           },
         });
 
+        console.log(
+          `[Participant] Successfully updated avatar URL for participant ${updatedParticipant.id}`,
+        );
         return updatedParticipant;
       } catch (error) {
         console.error("Error updating participant avatar URL:", error);
