@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "~/trpc/react";
@@ -10,7 +10,8 @@ import { CameraCapture } from "~/app/_components/user/CameraCapture";
  * Welcome page for participants who have been invited
  * This is the landing page when a participant clicks on their invitation link
  */
-export default function JoinPage() {
+// Component that uses useSearchParams
+function JoinPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -332,5 +333,27 @@ export default function JoinPage() {
         {renderStep()}
       </div>
     </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function JoinPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="bg-greek-gradient flex min-h-screen flex-col items-center justify-center p-4">
+          <div className="border-greek-gold/30 w-full max-w-md rounded-lg border bg-white/10 p-8 shadow-xl backdrop-blur-sm">
+            <h1 className="greek-column-header mb-6 text-center text-3xl font-bold text-white">
+              Scotty <span className="text-greek-gold">Olympics</span>
+            </h1>
+            <div className="flex justify-center">
+              <div className="border-t-greek-gold h-8 w-8 animate-spin rounded-full border-4 border-white"></div>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <JoinPageContent />
+    </Suspense>
   );
 }
