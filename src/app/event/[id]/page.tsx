@@ -2,22 +2,16 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { HydrateClient } from "~/trpc/server";
 
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import { db } from "~/server/db";
 import EventContent from "./eventContent";
 
-type Props = {
-  params: {
-    id: string;
-  };
-  searchParams: { [key: string]: string | string[] | undefined };
-};
-
-export default async function EventPage({ params }: Props) {
+export default async function EventPage() {
   // Check if event exists
+  const { id } = useParams();
   const event = await db.event.findUnique({
     where: {
-      id: params.id,
+      id: id as string,
     },
   });
 
