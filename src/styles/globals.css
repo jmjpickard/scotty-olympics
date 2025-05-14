@@ -57,7 +57,7 @@
 }
 
 /* Greek column decoration for headers */
-.greek-column-header {
+. {
   position: relative;
   padding: 1rem 0;
 }

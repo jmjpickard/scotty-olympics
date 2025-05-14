@@ -62,7 +62,7 @@ export default function ProfileContent({
     return (
       <div className="bg-greek-gradient flex min-h-screen flex-col items-center justify-center p-4">
         <div className="border-greek-gold/30 w-full max-w-md rounded-lg border bg-white/10 p-8 shadow-xl backdrop-blur-sm">
-          <h1 className="greek-column-header mb-6 text-center text-3xl font-bold text-white">
+          <h1 className="mb-6 text-center text-3xl font-bold text-white">
             Error Loading Profile
           </h1>
           <div className="mb-6 rounded bg-red-500/30 p-3 text-white">
@@ -86,7 +86,7 @@ export default function ProfileContent({
     return (
       <div className="bg-greek-gradient flex min-h-screen flex-col items-center justify-center p-4">
         <div className="border-greek-gold/30 w-full max-w-md rounded-lg border bg-white/10 p-8 shadow-xl backdrop-blur-sm">
-          <h1 className="greek-column-header mb-6 text-center text-3xl font-bold text-white">
+          <h1 className="mb-6 text-center text-3xl font-bold text-white">
             Profile Not Found
           </h1>
           <div className="mb-6 rounded bg-yellow-500/30 p-3 text-white">
@@ -110,7 +110,7 @@ export default function ProfileContent({
     <main className="bg-greek-gradient min-h-screen text-white">
       <div className="container mx-auto px-4 py-12">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="greek-column-header text-3xl font-bold">
+          <h1 className="text-3xl font-bold">
             {isOwnProfile ? "Your Profile" : "Athlete Profile"}
           </h1>
           <Link

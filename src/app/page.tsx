@@ -7,7 +7,7 @@ export default async function Home() {
       <main className="bg-greek-gradient flex min-h-screen flex-col items-center justify-center text-white">
         <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
           {/* Greek column decoration */}
-          <div className="greek-column-header w-full max-w-4xl">
+          <div className="w-full max-w-4xl">
             {/* Title with laurel wreath */}
             <h1 className="laurel-decoration relative text-center text-5xl font-extrabold tracking-tight sm:text-[5rem]">
               <span className="mb-2 inline-block">🏛️</span>

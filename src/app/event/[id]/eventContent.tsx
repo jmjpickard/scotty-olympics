@@ -37,7 +37,7 @@ export default function EventContent({
     return (
       <div className="bg-greek-gradient flex min-h-screen flex-col items-center justify-center p-4">
         <div className="border-greek-gold/30 w-full max-w-4xl rounded-lg border bg-white/10 p-8 shadow-xl backdrop-blur-sm">
-          <h1 className="greek-column-header mb-6 text-center text-3xl font-bold text-white">
+          <h1 className="mb-6 text-center text-3xl font-bold text-white">
             Error
           </h1>
           <div className="mb-6 rounded bg-red-500/30 p-4 text-center">
@@ -78,7 +78,7 @@ export default function EventContent({
           </div>
 
           <div className="border-greek-gold/30 rounded-lg border bg-white/10 p-6 shadow-md">
-            <h2 className="greek-column-header mb-6 flex items-center text-2xl font-bold">
+            <h2 className="mb-6 flex items-center text-2xl font-bold">
               <span className="mr-2">🏆</span> Event Leaderboard
             </h2>
             <EventLeaderboard scores={scores} />

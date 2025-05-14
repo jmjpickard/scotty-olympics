@@ -31,7 +31,7 @@ export default function AuthPage() {
   return (
     <div className="bg-greek-gradient flex min-h-screen flex-col items-center justify-center p-4">
       <div className="border-greek-gold/30 w-full max-w-md rounded-lg border bg-white/10 p-8 shadow-xl backdrop-blur-sm">
-        <h1 className="greek-column-header mb-6 text-center text-3xl font-bold text-white">
+        <h1 className="mb-6 text-center text-3xl font-bold text-white">
           Welcome to Scotty <span className="text-greek-gold">Olympics</span>
         </h1>
         <div className="auth-container">

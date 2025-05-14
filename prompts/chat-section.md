@@ -301,7 +301,7 @@ export const ChatBox = ({ user }) => {
 
   return (
     <div className="border-greek-gold/30 flex h-[500px] flex-col rounded-lg border bg-white/10 p-4 shadow-md">
-      <h2 className="greek-column-header mb-4 flex items-center text-2xl font-bold">
+      <h2 className="mb-4 flex items-center text-2xl font-bold">
         <span className="mr-2">💬</span> Olympic Chat
       </h2>
 

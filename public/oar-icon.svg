@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32px" height="32px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>Oar Icon</title>
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g transform="translate(2.000000, 2.000000)">
+            <!-- Oar Handle -->
+            <rect fill="#8B4513" x="0" y="12" width="8" height="4" rx="2"></rect>
+            
+            <!-- Oar Shaft -->
+            <rect fill="#A0522D" x="8" y="13" width="12" height="2"></rect>
+            
+            <!-- Oar Blade -->
+            <path d="M20,10 L28,6 L28,22 L20,18 L20,10 Z" fill="#D2B48C"></path>
+            
+            <!-- Greek Pattern -->
+            <path d="M22,12 L26,10 L26,18 L22,16 L22,12 Z" fill="#B8860B" opacity="0.7"></path>
+            
+            <!-- Binding -->
+            <rect fill="#8B4513" x="18" y="12.5" width="3" height="3" rx="1"></rect>
+        </g>
+    </g>
+</svg>

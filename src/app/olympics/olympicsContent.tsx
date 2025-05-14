@@ -10,7 +10,9 @@ import { ScoreEntryForm } from "../_components/admin/ScoreEntryForm";
 import { EventManagementForm } from "../_components/admin/EventManagementForm";
 import { AvatarUpload } from "../_components/user/AvatarUpload";
 import { ChatBox } from "../_components/chat/ChatBox";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { GameIcon } from "../_components/game/GameIcon";
+import { GameModal } from "../_components/game/GameModal";
 import type { User } from "@supabase/supabase-js"; // Import User type
 
 // Define participant profile type based on Prisma schema
@@ -109,6 +111,16 @@ export default function OlympicsContent({
   // isLoading might not be needed if initial state is always provided,
   // but keep it for onAuthStateChange updates for now.
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
+  const [showGameModal, setShowGameModal] = useState(false);
+  const searchParams = useSearchParams();
+  const gameIdParam = searchParams.get("game");
+
+  // Check for game parameter in URL and show game modal if present
+  useEffect(() => {
+    if (gameIdParam && userProfile) {
+      setShowGameModal(true);
+    }
+  }, [gameIdParam, userProfile]);
   const router = useRouter();
 
   // Fetch events data
@@ -305,14 +317,19 @@ export default function OlympicsContent({
           )}
 
           <div className="border-greek-gold/30 mb-12 flex flex-col items-center justify-between gap-6 border-b pb-6 sm:flex-row">
-            <div>
-              <h1 className="greek-column-header flex items-center text-center text-4xl font-extrabold tracking-tight sm:text-left sm:text-5xl">
-                <span className="mr-3 text-3xl">🏛️</span> Scotty{" "}
-                <span className="text-greek-gold">Olympics</span>
-              </h1>
-              <p className="mt-2 max-w-md text-center text-sm text-gray-300 sm:text-left sm:text-base">
-                The ultimate competition of skill, strategy, and sportsmanship
-              </p>
+            <div className="flex items-center">
+              <div className="mr-2">
+                <GameIcon onActivate={() => setShowGameModal(true)} />
+              </div>
+              <div>
+                <h1 className="flex items-center text-center text-4xl font-extrabold tracking-tight sm:text-left sm:text-5xl">
+                  <span className="mr-3 text-3xl">🏛️</span> Scotty{" "}
+                  <span className="text-greek-gold">Olympics</span>
+                </h1>
+                <p className="mt-2 max-w-md text-center text-sm text-gray-300 sm:text-left sm:text-base">
+                  The ultimate competition of skill, strategy, and sportsmanship
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">
@@ -346,7 +363,7 @@ export default function OlympicsContent({
           {/* Admin Section - Only visible to admin */}
           {isAdmin && (
             <div className="border-greek-gold/30 bg-greek-blue-dark/40 mb-12 rounded-lg border p-6 shadow-lg">
-              <h2 className="greek-column-header mb-4 flex items-center text-2xl font-bold">
+              <h2 className="mb-4 flex items-center text-2xl font-bold">
                 <span className="mr-2">⚙️</span> Admin Controls
               </h2>
               <p className="text-greek-white/80 mb-6 text-sm">
@@ -364,7 +381,7 @@ export default function OlympicsContent({
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {/* Leaderboard */}
             <div className="border-greek-gold/30 rounded-lg border bg-white/10 p-6 shadow-md">
-              <h2 className="greek-column-header mb-4 flex items-center text-2xl font-bold">
+              <h2 className="mb-4 flex items-center text-2xl font-bold">
                 <span className="mr-2">🏆</span> Leaderboard
               </h2>
               {isLoadingLeaderboard ? (
@@ -463,7 +480,7 @@ export default function OlympicsContent({
 
             {/* Events */}
             <div className="border-greek-gold/30 rounded-lg border bg-white/10 p-6 shadow-md">
-              <h2 className="greek-column-header mb-4 flex items-center text-2xl font-bold">
+              <h2 className="mb-4 flex items-center text-2xl font-bold">
                 <span className="mr-2">🏃‍♂️</span> Events
               </h2>
               {isLoadingEvents ? (
@@ -526,6 +543,16 @@ export default function OlympicsContent({
             {/* Chat Section - Replacing the User Profile */}
             <ChatBox user={user} />
           </div>
+
+          {/* Game Modal */}
+          {showGameModal && userProfile && (
+            <GameModal
+              onClose={() => setShowGameModal(false)}
+              initialGameId={gameIdParam ?? undefined}
+              userId={user?.id ?? ""}
+              participantId={userProfile.id}
+            />
+          )}
 
           <div className="mt-10 text-center">
             <Link

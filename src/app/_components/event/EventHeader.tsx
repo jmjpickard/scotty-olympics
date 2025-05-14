@@ -9,9 +9,7 @@ interface EventHeaderProps {
 export const EventHeader = ({ event }: EventHeaderProps) => {
   return (
     <div className="flex flex-col">
-      <h1 className="greek-column-header mb-2 text-3xl font-bold">
-        {event.name}
-      </h1>
+      <h1 className="mb-2 text-3xl font-bold">{event.name}</h1>
       {event.description && (
         <p className="mt-2 text-gray-300">{event.description}</p>
       )}

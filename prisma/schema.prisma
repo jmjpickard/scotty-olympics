@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
     provider = "postgresql"
-    url      = env("DATABASE_URL") // Use the DATABASE_URL environment variable
+    url      = env("DIRECT_URL") // Use the DATABASE_URL environment variable
 }
 
 model Event {
@@ -22,17 +22,18 @@ model Event {
 }
 
 model Participant {
-    id                String    @id @default(uuid())
-    userId            String?   @unique @map("user_id") // Corresponds to Supabase auth.users.id
+    id                String            @id @default(uuid())
+    userId            String?           @unique @map("user_id") // Corresponds to Supabase auth.users.id
     name              String?
-    email             String    @unique // Used for invites/linking
-    avatarUrl         String?   @map("avatar_url")
-    isAdmin           Boolean   @default(false) @map("is_admin")
-    inviteToken       String?   @unique @map("invite_token") // Token for invitation link
-    inviteTokenExpiry DateTime? @map("invite_token_expiry") // When the invitation expires
-    createdAt         DateTime  @default(now()) @map("created_at")
+    email             String            @unique // Used for invites/linking
+    avatarUrl         String?           @map("avatar_url")
+    isAdmin           Boolean           @default(false) @map("is_admin")
+    inviteToken       String?           @unique @map("invite_token") // Token for invitation link
+    inviteTokenExpiry DateTime?         @map("invite_token_expiry") // When the invitation expires
+    createdAt         DateTime          @default(now()) @map("created_at")
     scores            Score[] // Relation to Score model
     messages          Message[] // Relation to Message model
+    GameParticipant   GameParticipant[]
 
     @@map("participants") // Maps model to the 'participants' table
 }
@@ -62,4 +63,30 @@ model Score {
 
     @@unique([participantId, eventId]) // Ensures unique score per participant per event
     @@map("scores") // Maps model to the 'scores' table
+}
+
+model Game {
+    id           String            @id @default(uuid())
+    status       String // 'waiting', 'starting', 'in_progress', 'finished'
+    createdAt    DateTime          @default(now()) @map("created_at")
+    startedAt    DateTime?         @map("started_at")
+    finishedAt   DateTime?         @map("finished_at")
+    participants GameParticipant[]
+
+    @@map("games")
+}
+
+model GameParticipant {
+    id            String @id @default(uuid())
+    gameId        String @map("game_id")
+    participantId String @map("participant_id")
+    tapCount      Int    @default(0) @map("tap_count")
+    rank          Int?
+    scoreAwarded  Int?   @map("score_awarded")
+
+    game        Game        @relation(fields: [gameId], references: [id])
+    participant Participant @relation(fields: [participantId], references: [id])
+
+    @@unique([gameId, participantId])
+    @@map("game_participants")
 }
