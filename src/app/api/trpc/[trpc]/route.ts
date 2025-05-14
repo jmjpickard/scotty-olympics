@@ -1,11 +1,11 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 import { env } from "~/env";
 import { appRouter } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
-import type { Database } from "~/lib/supabase/types"; // Assuming types are here
+import type { Database } from "~/lib/supabase/types";
 
 /**
  * tRPC request handler using @supabase/ssr for proper cookie handling
@@ -112,16 +112,16 @@ function formatCookieHeader(
 ): string {
   let cookie = `${name}=${encodeURIComponent(value)}`;
 
-  if (options.path) cookie += `; Path=${options.path}`;
-  if (options.domain) cookie += `; Domain=${options.domain}`;
-  if (options.maxAge) cookie += `; Max-Age=${options.maxAge}`;
+  if (options.path) cookie += `; Path=${String(options.path)}`;
+  if (options.domain) cookie += `; Domain=${String(options.domain)}`;
+  if (options.maxAge) cookie += `; Max-Age=${String(options.maxAge)}`;
   if (options.expires) {
     const expires = options.expires as Date | string;
     cookie += `; Expires=${typeof expires === "string" ? expires : expires.toUTCString()}`;
   }
   if (options.httpOnly) cookie += "; HttpOnly";
   if (options.secure) cookie += "; Secure";
-  if (options.sameSite) cookie += `; SameSite=${options.sameSite}`;
+  if (options.sameSite) cookie += `; SameSite=${String(options.sameSite)}`;
 
   return cookie;
 }
