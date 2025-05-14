@@ -8,6 +8,20 @@ import { createTRPCContext } from "~/server/api/trpc";
 import type { Database } from "~/lib/supabase/types";
 
 /**
+ * Cookie options type with proper typing for each field
+ */
+interface CookieOptions {
+  path?: string;
+  domain?: string;
+  maxAge?: number;
+  expires?: Date | string;
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: "strict" | "lax" | "none";
+  [key: string]: unknown;
+}
+
+/**
  * tRPC request handler using @supabase/ssr for proper cookie handling
  */
 const handler = async (req: NextRequest) => {
@@ -15,7 +29,7 @@ const handler = async (req: NextRequest) => {
   const cookiesToSet: {
     name: string;
     value: string;
-    options?: Record<string, unknown>;
+    options?: CookieOptions;
   }[] = [];
 
   // Create Supabase client with custom cookie handling
@@ -35,7 +49,7 @@ const handler = async (req: NextRequest) => {
             cookiesToSet.push({
               name: cookie.name,
               value: cookie.value,
-              options: cookie,
+              options: cookie as unknown as CookieOptions,
             });
           });
         },
@@ -108,20 +122,38 @@ const handler = async (req: NextRequest) => {
 function formatCookieHeader(
   name: string,
   value: string,
-  options: Record<string, unknown> = {},
+  options: CookieOptions,
 ): string {
   let cookie = `${name}=${encodeURIComponent(value)}`;
 
-  if (options.path) cookie += `; Path=${String(options.path)}`;
-  if (options.domain) cookie += `; Domain=${String(options.domain)}`;
-  if (options.maxAge) cookie += `; Max-Age=${String(options.maxAge)}`;
+  if (typeof options.path === "string") {
+    cookie += `; Path=${options.path}`;
+  }
+
+  if (typeof options.domain === "string") {
+    cookie += `; Domain=${options.domain}`;
+  }
+
+  if (typeof options.maxAge === "number") {
+    cookie += `; Max-Age=${options.maxAge}`;
+  }
+
   if (options.expires) {
-    const expires = options.expires as Date | string;
+    const expires = options.expires;
     cookie += `; Expires=${typeof expires === "string" ? expires : expires.toUTCString()}`;
   }
-  if (options.httpOnly) cookie += "; HttpOnly";
-  if (options.secure) cookie += "; Secure";
-  if (options.sameSite) cookie += `; SameSite=${String(options.sameSite)}`;
+
+  if (options.httpOnly) {
+    cookie += "; HttpOnly";
+  }
+
+  if (options.secure) {
+    cookie += "; Secure";
+  }
+
+  if (typeof options.sameSite === "string") {
+    cookie += `; SameSite=${options.sameSite}`;
+  }
 
   return cookie;
 }
