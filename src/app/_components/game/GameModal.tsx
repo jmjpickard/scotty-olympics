@@ -2,6 +2,27 @@
 
 import { useState, useEffect, useRef } from "react";
 import { api } from "~/trpc/react";
+import type { SetStateAction } from "react";
+
+// Define types for game data
+interface GameParticipant {
+  participantId: string;
+  id: string;
+  tapCount: number;
+  participant: {
+    id: string;
+    email: string;
+  };
+  // Add other participant properties as needed
+}
+
+interface Game {
+  id: string;
+  status: "waiting" | "starting" | "in_progress" | "finished";
+  startedAt?: string;
+  participants: GameParticipant[];
+  // Add other game properties as needed
+}
 import { GameLobby } from "./GameLobby";
 import { GameCountdown } from "./GameCountdown";
 import { GamePlay } from "./GamePlay";
@@ -10,7 +31,7 @@ import { GameResults } from "./GameResults";
 interface GameModalProps {
   onClose: () => void;
   initialGameId?: string;
-  userId: string;
+  _userId: string; // Prefixed with underscore to indicate intentionally unused
   participantId: string;
 }
 
@@ -29,14 +50,14 @@ type GameState =
 export const GameModal: React.FC<GameModalProps> = ({
   onClose,
   initialGameId,
-  userId,
+  _userId,
   participantId,
 }) => {
   const [gameState, setGameState] = useState<GameState>(
     initialGameId ? "lobby" : "creating",
   );
   const [gameId, setGameId] = useState<string | undefined>(initialGameId);
-  const [tapCount, setTapCount] = useState(0); // Local tap count, GamePlay has its own for display
+  const [_tapCount, setTapCount] = useState(0); // Local tap count, GamePlay has its own for display
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(10000); // 10 seconds in ms
   const [isFinished, setIsFinished] = useState(false);
@@ -45,7 +66,7 @@ export const GameModal: React.FC<GameModalProps> = ({
 
   // Create a new game
   const createGameMutation = api.game.createGame.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: { id: string }) => {
       setGameId(data.id);
       setGameState("lobby");
     },
@@ -56,9 +77,10 @@ export const GameModal: React.FC<GameModalProps> = ({
 
   // Start a game
   const startGameMutation = api.game.startGame.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: { startedAt: Date | null }) => {
+      // Changed from string to Date | null
       if (data.startedAt) {
-        setStartTime(new Date(data.startedAt));
+        setStartTime(new Date(data.startedAt)); // Ensure it's a Date object
         setGameState("countdown");
       }
     },
@@ -89,7 +111,11 @@ export const GameModal: React.FC<GameModalProps> = ({
       refetchOnMount: false,
       refetchOnReconnect: false,
     },
-  );
+  ) as {
+    data: Game | undefined;
+    isLoading: boolean;
+    refetch: () => Promise<unknown>;
+  };
 
   // Create a new game on initial mount if no initialGameId is provided
   // This handles the scenario where the modal is opened to start a fresh game, not join one.
@@ -200,7 +226,15 @@ export const GameModal: React.FC<GameModalProps> = ({
         return (
           <GameLobby
             gameId={gameId ?? ""}
-            participants={gameData?.participants ?? []}
+            participants={
+              gameData?.participants
+                ? gameData.participants.map((gp) => ({
+                    id: gp.participantId,
+                    email: gp.participant.email,
+                    tapCount: gp.tapCount,
+                  }))
+                : []
+            }
             isCreator={isCreator}
             onStartGame={handleStartGame}
           />

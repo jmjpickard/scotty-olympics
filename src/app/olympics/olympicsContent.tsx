@@ -549,7 +549,7 @@ export default function OlympicsContent({
             <GameModal
               onClose={() => setShowGameModal(false)}
               initialGameId={gameIdParam ?? undefined}
-              userId={user?.id ?? ""}
+              _userId={user?.id ?? ""}
               participantId={userProfile.id}
             />
           )}

@@ -35,6 +35,7 @@ export const RowingAnimation: React.FC<RowingAnimationProps> = ({
 
   // Animation loop
   const animate = (time: number) => {
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     if (previousTimeRef.current === undefined) {
       previousTimeRef.current = time;
     }

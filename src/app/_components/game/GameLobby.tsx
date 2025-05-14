@@ -35,7 +35,7 @@ export const GameLobby: React.FC<GameLobbyProps> = ({
 
   // Copy game URL to clipboard
   const copyGameUrl = () => {
-    navigator.clipboard.writeText(gameUrl).then(() => {
+    void navigator.clipboard.writeText(gameUrl).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });

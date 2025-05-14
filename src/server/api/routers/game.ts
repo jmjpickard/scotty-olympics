@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import type { GameParticipant } from "@prisma/client";
+import { Prisma } from "@prisma/client"; // Import Prisma for types if needed, though often inferred
 
 export const gameRouter = createTRPCRouter({
   // Create a new game
@@ -13,11 +13,8 @@ export const gameRouter = createTRPCRouter({
       });
     }
 
-    // Get the current user's participant record
     const participant = await ctx.db.participant.findFirst({
-      where: {
-        userId: ctx.user.id,
-      },
+      where: { userId: ctx.user.id },
     });
 
     if (!participant) {
@@ -27,96 +24,97 @@ export const gameRouter = createTRPCRouter({
       });
     }
 
-    // Create a new game
-    const game = await ctx.db.$queryRaw`
-      INSERT INTO games (id, status, created_at)
-      VALUES (gen_random_uuid(), 'waiting', NOW())
-      RETURNING id, status, created_at as "createdAt"
-    `;
+    const newGame = await ctx.db.game.create({
+      data: {
+        status: "waiting",
+        participants: {
+          create: {
+            participantId: participant.id,
+            tapCount: 0,
+          },
+        },
+      },
+    });
 
-    const gameId = (game as any)[0].id;
-
-    // Add the creator as the first participant
-    await ctx.db.$queryRaw`
-      INSERT INTO game_participants (id, game_id, participant_id, tap_count)
-      VALUES (gen_random_uuid(), ${gameId}, ${participant!.id}, 0)
-    `;
-
-    return (game as any)[0];
+    return newGame;
   }),
 
   // Get a game by ID
   getGame: publicProcedure
     .input(z.object({ gameId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const game = await ctx.db.$queryRaw`
-        SELECT g.id, g.status, g.created_at as "createdAt", g.started_at as "startedAt", g.finished_at as "finishedAt"
-        FROM games g
-        WHERE g.id = ${input.gameId}
-      `;
+      const game = await ctx.db.game.findUnique({
+        where: { id: input.gameId },
+        include: {
+          participants: {
+            // GameParticipant records
+            include: {
+              participant: true, // The actual Participant record
+            },
+            orderBy: {
+              // Optional: define an order for participants if necessary
+              // e.g. tapCount: 'desc' or by a join timestamp if available
+            },
+          },
+        },
+      });
 
-      if (!game || (game as any[]).length === 0) {
+      if (!game) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Game not found",
         });
       }
 
-      const participants = await ctx.db.$queryRaw`
-        SELECT gp.id, gp.game_id as "gameId", gp.participant_id as "participantId", 
-               gp.tap_count as "tapCount", gp.rank, gp.score_awarded as "scoreAwarded",
-               p.name, p.email, p.avatar_url as "avatarUrl"
-        FROM game_participants gp
-        JOIN participants p ON gp.participant_id = p.id
-        WHERE gp.game_id = ${input.gameId}
-      `;
-
       return {
-        ...(game as any)[0],
-        participants: participants as any[],
+        ...game,
+        participants: game.participants.map((gp) => ({
+          id: gp.id,
+          gameId: gp.gameId,
+          participantId: gp.participantId,
+          tapCount: gp.tapCount,
+          rank: gp.rank,
+          scoreAwarded: gp.scoreAwarded,
+          name: gp.participant.name,
+          email: gp.participant.email,
+          avatarUrl: gp.participant.avatarUrl,
+        })),
       };
     }),
 
   // Get all active games (waiting or in progress)
   getActiveGames: publicProcedure.query(async ({ ctx }) => {
-    const games = await ctx.db.$queryRaw`
-      SELECT g.id, g.status, g.created_at as "createdAt", g.started_at as "startedAt", g.finished_at as "finishedAt"
-      FROM games g
-      WHERE g.status IN ('waiting', 'starting', 'in_progress')
-      ORDER BY g.created_at DESC
-    `;
-
-    const gameIds = (games as any[]).map((g) => g.id);
-
-    if (gameIds.length === 0) {
-      return [];
-    }
-
-    const participants = await ctx.db.$queryRaw`
-      SELECT gp.id, gp.game_id as "gameId", gp.participant_id as "participantId", 
-             gp.tap_count as "tapCount", gp.rank, gp.score_awarded as "scoreAwarded",
-             p.name, p.email, p.avatar_url as "avatarUrl"
-      FROM game_participants gp
-      JOIN participants p ON gp.participant_id = p.id
-      WHERE gp.game_id IN (${gameIds.join(",")})
-    `;
-
-    // Group participants by game
-    const participantsByGame = (participants as any[]).reduce(
-      (acc, p) => {
-        if (!acc[p.gameId]) {
-          acc[p.gameId] = [];
-        }
-        acc[p.gameId].push(p);
-        return acc;
+    const games = await ctx.db.game.findMany({
+      where: {
+        status: {
+          in: ["waiting", "starting", "in_progress"],
+        },
       },
-      {} as Record<string, any[]>,
-    );
+      include: {
+        participants: {
+          include: {
+            participant: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-    // Attach participants to their games
-    return (games as any[]).map((game) => ({
+    return games.map((game) => ({
       ...game,
-      participants: participantsByGame[game.id] || [],
+      participants: game.participants.map((gp) => ({
+        id: gp.id,
+        gameId: gp.gameId,
+        participantId: gp.participantId,
+        tapCount: gp.tapCount,
+        rank: gp.rank,
+        scoreAwarded: gp.scoreAwarded,
+        name: gp.participant.name,
+        email: gp.participant.email,
+        avatarUrl: gp.participant.avatarUrl,
+      })),
     }));
   }),
 
@@ -131,11 +129,8 @@ export const gameRouter = createTRPCRouter({
         });
       }
 
-      // Get the current user's participant record
       const participant = await ctx.db.participant.findFirst({
-        where: {
-          userId: ctx.user.id,
-        },
+        where: { userId: ctx.user.id },
       });
 
       if (!participant) {
@@ -145,46 +140,47 @@ export const gameRouter = createTRPCRouter({
         });
       }
 
-      // Check if the game exists and is in waiting status
-      const game = await ctx.db.$queryRaw`
-        SELECT id, status
-        FROM games
-        WHERE id = ${input.gameId}
-      `;
+      const game = await ctx.db.game.findUnique({
+        where: { id: input.gameId },
+        select: { id: true, status: true }, // Only select needed fields
+      });
 
-      if (!game || (game as any[]).length === 0) {
+      if (!game) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Game not found",
         });
       }
 
-      if ((game as any)[0].status !== "waiting") {
+      if (game.status !== "waiting") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Cannot join a game that has already started",
         });
       }
 
-      // Check if the participant is already in the game
-      const existingParticipant = await ctx.db.$queryRaw`
-        SELECT id
-        FROM game_participants
-        WHERE game_id = ${input.gameId} AND participant_id = ${participant!.id}
-      `;
+      const existingGameParticipant = await ctx.db.gameParticipant.findUnique({
+        where: {
+          gameId_participantId: {
+            gameId: input.gameId,
+            participantId: participant.id,
+          },
+        },
+      });
 
-      if (existingParticipant && (existingParticipant as any[]).length > 0) {
-        // Already joined, just return the game
-        return (game as any)[0];
+      if (existingGameParticipant) {
+        return game; // Already joined, return basic game info
       }
 
-      // Add the participant to the game
-      await ctx.db.$queryRaw`
-        INSERT INTO game_participants (id, game_id, participant_id, tap_count)
-        VALUES (gen_random_uuid(), ${input.gameId}, ${participant!.id}, 0)
-      `;
+      await ctx.db.gameParticipant.create({
+        data: {
+          gameId: input.gameId,
+          participantId: participant.id,
+          tapCount: 0,
+        },
+      });
 
-      return (game as any)[0];
+      return game; // Return basic game info
     }),
 
   // Start a game
@@ -198,110 +194,96 @@ export const gameRouter = createTRPCRouter({
         });
       }
 
-      // Get the current user's participant record
-      const participant = await ctx.db.participant.findFirst({
-        where: {
-          userId: ctx.user.id,
-        },
+      const currentUserParticipant = await ctx.db.participant.findFirst({
+        where: { userId: ctx.user.id },
       });
 
-      if (!participant) {
+      if (!currentUserParticipant) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "You must have a participant profile to start a game",
         });
       }
 
-      // Check if the game exists
-      const game = await ctx.db.$queryRaw`
-        SELECT id, status
-        FROM games
-        WHERE id = ${input.gameId}
-      `;
+      const game = await ctx.db.game.findUnique({
+        where: { id: input.gameId },
+        include: {
+          participants: {
+            // GameParticipant records
+            select: { participantId: true },
+          },
+        },
+      });
 
-      if (!game || (game as any[]).length === 0) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Game not found",
-        });
+      if (!game) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
       }
 
-      if ((game as any)[0].status !== "waiting") {
+      if (game.status !== "waiting") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Game has already started",
+          message: "Game has already started or is not in a waiting state.",
         });
       }
 
-      // Check if the participant is in the game
-      const gameParticipants = await ctx.db.$queryRaw`
-        SELECT participant_id as "participantId"
-        FROM game_participants
-        WHERE game_id = ${input.gameId}
-      `;
-
-      // Check if the participant is in the game
-      const isParticipant = (gameParticipants as any[]).some(
-        (p) => p.participantId === participant!.id,
+      const isParticipantInGame = game.participants.some(
+        (p) => p.participantId === currentUserParticipant.id,
       );
 
-      if (!isParticipant) {
+      if (!isParticipantInGame) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "You must be a participant in the game to start it",
         });
       }
 
-      // Calculate the start time (3 seconds from now)
       const startTime = new Date();
       startTime.setSeconds(startTime.getSeconds() + 3);
 
-      // Update the game status to starting
-      await ctx.db.$queryRaw`
-        UPDATE games
-        SET status = 'starting', started_at = ${startTime}
-        WHERE id = ${input.gameId}
-      `;
+      const updatedGame = await ctx.db.game.update({
+        where: { id: input.gameId },
+        data: { status: "starting", startedAt: startTime },
+      });
 
-      const updatedGame = await ctx.db.$queryRaw`
-        SELECT id, status, created_at as "createdAt", started_at as "startedAt", finished_at as "finishedAt"
-        FROM games
-        WHERE id = ${input.gameId}
-      `;
+      setTimeout(() => {
+        void (async () => {
+          try {
+            await ctx.db.game.update({
+              where: { id: input.gameId, status: "starting" }, // Ensure still starting
+              data: { status: "in_progress" },
+            });
 
-      // Schedule the game to move to "in_progress" after the countdown
-      setTimeout(async () => {
-        try {
-          await ctx.db.$queryRaw`
-            UPDATE games
-            SET status = 'in_progress'
-            WHERE id = ${input.gameId}
-          `;
-
-          // Schedule the game to finish after 10 seconds
-          setTimeout(async () => {
-            try {
-              const finishTime = new Date();
-              await ctx.db.$queryRaw`
-                UPDATE games
-                SET status = 'finished', finished_at = ${finishTime}
-                WHERE id = ${input.gameId}
-              `;
-            } catch (error) {
-              console.error("Error finishing game:", error);
-            }
-          }, 10000); // 10 seconds for the game duration
-        } catch (error) {
-          console.error("Error starting game:", error);
-        }
+            setTimeout(() => {
+              void (async () => {
+                try {
+                  const finishTime = new Date();
+                  await ctx.db.game.update({
+                    where: { id: input.gameId, status: "in_progress" }, // Ensure still in_progress
+                    data: { status: "finished", finishedAt: finishTime },
+                  });
+                } catch (error) {
+                  console.error(
+                    `Error auto-finishing game ${input.gameId}:`,
+                    error,
+                  );
+                }
+              })();
+            }, 10000); // 10 seconds for the game duration
+          } catch (error) {
+            console.error(
+              `Error auto-starting game to in_progress ${input.gameId}:`,
+              error,
+            );
+          }
+        })();
       }, 3000); // 3 seconds for the countdown
 
-      return (updatedGame as any)[0];
+      return updatedGame;
     }),
 
   // Update tap count
   updateTapCount: protectedProcedure
-    .input(z.object({ gameId: z.string(), tapCount: z.number() }))
+    .input(z.object({ gameId: z.string(), tapCount: z.number().min(0) }))
     .mutation(async ({ ctx, input }) => {
       if (!ctx.user?.id) {
         throw new TRPCError({
@@ -310,11 +292,8 @@ export const gameRouter = createTRPCRouter({
         });
       }
 
-      // Get the current user's participant record
       const participant = await ctx.db.participant.findFirst({
-        where: {
-          userId: ctx.user.id,
-        },
+        where: { userId: ctx.user.id },
       });
 
       if (!participant) {
@@ -324,41 +303,33 @@ export const gameRouter = createTRPCRouter({
         });
       }
 
-      // Check if the game exists and is in progress
-      const game = await ctx.db.$queryRaw`
-        SELECT id, status
-        FROM games
-        WHERE id = ${input.gameId}
-      `;
+      const game = await ctx.db.game.findUnique({
+        where: { id: input.gameId },
+        select: { status: true },
+      });
 
-      if (!game || (game as any[]).length === 0) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Game not found",
-        });
+      if (!game) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
       }
 
-      if ((game as any)[0].status !== "in_progress") {
+      if (game.status !== "in_progress") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Cannot update tap count for a game that is not in progress",
         });
       }
 
-      // Update the participant's tap count
-      await ctx.db.$queryRaw`
-        UPDATE game_participants
-        SET tap_count = ${input.tapCount}
-        WHERE game_id = ${input.gameId} AND participant_id = ${participant!.id}
-      `;
+      const updatedGameParticipant = await ctx.db.gameParticipant.update({
+        where: {
+          gameId_participantId: {
+            gameId: input.gameId,
+            participantId: participant.id,
+          },
+        },
+        data: { tapCount: input.tapCount },
+      });
 
-      const gameParticipant = await ctx.db.$queryRaw`
-        SELECT id, game_id as "gameId", participant_id as "participantId", tap_count as "tapCount", rank, score_awarded as "scoreAwarded"
-        FROM game_participants
-        WHERE game_id = ${input.gameId} AND participant_id = ${participant!.id}
-      `;
-
-      return (gameParticipant as any)[0];
+      return updatedGameParticipant;
     }),
 
   // Finish a game and calculate results
@@ -372,158 +343,199 @@ export const gameRouter = createTRPCRouter({
         });
       }
 
-      // Get the current user's participant record
-      const participant = await ctx.db.participant.findFirst({
-        where: {
-          userId: ctx.user.id,
-        },
+      const currentUserParticipant = await ctx.db.participant.findFirst({
+        where: { userId: ctx.user.id },
       });
 
-      if (!participant) {
+      if (!currentUserParticipant) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "You must have a participant profile to finish a game",
         });
       }
 
-      // Check if the game exists
-      const game = await ctx.db.$queryRaw`
-        SELECT id, status
-        FROM games
-        WHERE id = ${input.gameId}
-      `;
+      const game = await ctx.db.game.findUnique({
+        where: { id: input.gameId },
+        include: {
+          participants: {
+            // GameParticipant records
+            include: {
+              participant: true, // The actual Participant record
+            },
+          },
+        },
+      });
 
-      if (!game || (game as any[]).length === 0) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Game not found",
-        });
+      if (!game) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
       }
 
-      if ((game as any)[0].status !== "finished") {
+      if (game.status !== "finished") {
+        // It's possible the game auto-finished, but this client is trying to finish it.
+        // Or, it might be called by an admin or a specific trigger.
+        // For now, let's assume it must be in 'finished' state by the auto-timer.
+        // If manual finishing is allowed earlier, this logic might change.
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Game is not finished yet",
+          message: `Game is not finished yet. Current status: ${game.status}`,
         });
       }
 
-      // Get all participants for this game
-      const gameParticipants = await ctx.db.$queryRaw`
-        SELECT gp.id, gp.game_id as "gameId", gp.participant_id as "participantId", 
-               gp.tap_count as "tapCount", gp.rank, gp.score_awarded as "scoreAwarded",
-               p.name, p.email, p.avatar_url as "avatarUrl"
-        FROM game_participants gp
-        JOIN participants p ON gp.participant_id = p.id
-        WHERE gp.game_id = ${input.gameId}
-      `;
-
-      // Check if the participant is in the game
-      const isParticipant = (gameParticipants as any[]).some(
-        (p) => p.participantId === participant!.id,
+      // Check if the current user is a participant in the game
+      // This check might be redundant if only game logic (e.g. server-side timer) calls finish,
+      // but good for protection if clients can call it.
+      const isParticipantInGame = game.participants.some(
+        (p) => p.participantId === currentUserParticipant.id,
       );
 
-      if (!isParticipant) {
+      if (!isParticipantInGame) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message: "You must be a participant in the game to finish it",
+          message:
+            "You must be a participant in the game to finalize its results.",
         });
       }
 
-      // Sort participants by tap count (descending)
-      const sortedParticipants = [...(gameParticipants as any[])].sort(
+      // Map to the structure expected by sorting and points calculation if needed,
+      // or use game.participants directly if structure is compatible.
+      // The original code used a DbGameParticipant structure that included p.name, p.email etc.
+      // Prisma's include gives us game.participants[i].participant.name
+      const gameParticipantsForRanking = game.participants.map((gp) => ({
+        id: gp.id, // GameParticipant ID
+        gameId: gp.gameId,
+        participantId: gp.participantId, // Actual Participant ID
+        tapCount: gp.tapCount,
+        rank: gp.rank,
+        scoreAwarded: gp.scoreAwarded,
+        // Participant details for context if needed, though not directly used in rank/score update below
+        name: gp.participant.name,
+        email: gp.participant.email,
+        avatarUrl: gp.participant.avatarUrl,
+      }));
+
+      const sortedParticipants = [...gameParticipantsForRanking].sort(
         (a, b) => b.tapCount - a.tapCount,
       );
 
-      // Calculate ranks and award points
       const pointsMap = [100, 75, 50]; // 1st, 2nd, 3rd place points
       const defaultPoints = 10; // Participation points
 
-      // Update each participant with rank and points
-      const updatePromises = sortedParticipants.map(async (gp, index) => {
-        const rank = index + 1;
-        const points = index < 3 ? pointsMap[index] : defaultPoints;
-
-        // Update game participant with rank and points
-        await ctx.db.$queryRaw`
-          UPDATE game_participants
-          SET rank = ${rank}, score_awarded = ${points}
-          WHERE id = ${gp.id}
-        `;
-
-        // Create a special "Row Harder" event if it doesn't exist
-        let rowHarderEvent = await ctx.db.event.findFirst({
-          where: {
-            name: "Row Harder!",
-          },
-        });
-
-        if (!rowHarderEvent) {
-          rowHarderEvent = await ctx.db.event.create({
-            data: {
-              name: "Row Harder!",
-              description: "Secret button mashing competition",
-            },
-          });
-        }
-
-        // Check if the participant already has a score for this event
-        const existingScore = await ctx.db.score.findUnique({
-          where: {
-            participantId_eventId: {
-              participantId: gp.participantId,
-              eventId: rowHarderEvent.id,
-            },
-          },
-        });
-
-        const finalPoints = points || defaultPoints;
-
-        if (existingScore) {
-          // Update existing score
-          await ctx.db.score.update({
-            where: {
-              id: existingScore.id,
-            },
-            data: {
-              points: existingScore.points + finalPoints,
-              rank: Math.min(existingScore.rank, rank), // Keep the best rank
-            },
-          });
-        } else {
-          // Create new score
-          await ctx.db.score.create({
-            data: {
-              participantId: gp.participantId,
-              eventId: rowHarderEvent.id,
-              rank,
-              points: finalPoints,
-            },
-          });
-        }
+      let rowHarderEvent = await ctx.db.event.findFirst({
+        where: { name: "Row Harder!" },
       });
 
-      await Promise.all(updatePromises);
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+      if (!rowHarderEvent) {
+        rowHarderEvent = await ctx.db.event.create({
+          data: {
+            name: "Row Harder!",
+            description: "Secret button mashing competition",
+          },
+        });
+      }
 
-      // Return the updated game with participants
-      const updatedGame = await ctx.db.$queryRaw`
-        SELECT id, status, created_at as "createdAt", started_at as "startedAt", finished_at as "finishedAt"
-        FROM games
-        WHERE id = ${input.gameId}
-      `;
+      const participantIdsForScoreLookup = sortedParticipants.map(
+        (p) => p.participantId,
+      );
+      const existingScoresForEvent = await ctx.db.score.findMany({
+        where: {
+          participantId: { in: participantIdsForScoreLookup },
+          eventId: rowHarderEvent.id,
+        },
+      });
+      const existingScoresMap = new Map(
+        existingScoresForEvent.map((s) => [
+          `${s.participantId}_${s.eventId}`,
+          s,
+        ]),
+      );
 
-      const updatedParticipants = await ctx.db.$queryRaw`
-        SELECT gp.id, gp.game_id as "gameId", gp.participant_id as "participantId", 
-               gp.tap_count as "tapCount", gp.rank, gp.score_awarded as "scoreAwarded",
-               p.name, p.email, p.avatar_url as "avatarUrl"
-        FROM game_participants gp
-        JOIN participants p ON gp.participant_id = p.id
-        WHERE gp.game_id = ${input.gameId}
-        ORDER BY gp.tap_count DESC
-      `;
+      const transactionOperations: Prisma.PrismaPromise<unknown>[] = [];
+
+      for (let i = 0; i < sortedParticipants.length; i++) {
+        const gp = sortedParticipants[i]; // This is the mapped structure
+        const rank = i + 1;
+        const scoreAwarded = i < 3 ? pointsMap[i] : defaultPoints;
+
+        if (!gp) {
+          continue; // Should be logically impossible, but satisfies TS
+        }
+
+        transactionOperations.push(
+          ctx.db.gameParticipant.update({
+            where: { id: gp.id }, // gp.id is GameParticipant's ID
+            data: { rank, scoreAwarded },
+          }),
+        );
+
+        const finalPointsAwarded = scoreAwarded ?? defaultPoints;
+        const existingScore = existingScoresMap.get(
+          `${gp.participantId}_${rowHarderEvent.id}`,
+        );
+
+        if (existingScore) {
+          transactionOperations.push(
+            ctx.db.score.update({
+              where: { id: existingScore.id },
+              data: {
+                points: existingScore.points + finalPointsAwarded,
+                rank: Math.min(existingScore.rank, rank),
+              },
+            }),
+          );
+        } else {
+          transactionOperations.push(
+            ctx.db.score.create({
+              data: {
+                participantId: gp.participantId,
+                eventId: rowHarderEvent.id,
+                rank,
+                points: finalPointsAwarded,
+              },
+            }),
+          );
+        }
+      }
+
+      await ctx.db.$transaction(transactionOperations);
+
+      // Return the updated game with participants, similar to getGame
+      const finalGameData = await ctx.db.game.findUnique({
+        where: { id: input.gameId },
+        include: {
+          participants: {
+            include: {
+              participant: true,
+            },
+            orderBy: {
+              // Order by rank or tap count for consistency
+              rank: "asc",
+            },
+          },
+        },
+      });
+
+      if (!finalGameData) {
+        // Should not happen if we just processed it
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to retrieve game data after finishing.",
+        });
+      }
 
       return {
-        ...(updatedGame as any)[0],
-        participants: updatedParticipants as any[],
+        ...finalGameData,
+        participants: finalGameData.participants.map((gp) => ({
+          id: gp.id,
+          gameId: gp.gameId,
+          participantId: gp.participantId,
+          tapCount: gp.tapCount,
+          rank: gp.rank,
+          scoreAwarded: gp.scoreAwarded,
+          name: gp.participant.name,
+          email: gp.participant.email,
+          avatarUrl: gp.participant.avatarUrl,
+        })),
       };
     }),
 });

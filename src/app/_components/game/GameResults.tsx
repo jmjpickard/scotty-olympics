@@ -214,7 +214,7 @@ export const GameResults: React.FC<GameResultsProps> = ({
             <span className="text-gray-400">Points Awarded:</span>
             <span className="text-white">
               {participants.reduce(
-                (sum, participant) => sum + (participant.scoreAwarded || 0),
+                (sum, participant) => sum + (participant.scoreAwarded ?? 0),
                 0,
               )}
             </span>
