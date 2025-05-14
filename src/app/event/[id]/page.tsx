@@ -7,8 +7,10 @@ import { db } from "~/server/db";
 import EventContent from "./eventContent";
 
 type EventPageProps = {
-  params: { id: string };
-  searchParams?: { [key: string]: string | string[] | undefined };
+  params: {
+    id: string;
+  };
+  searchParams: { [key: string]: string | string[] | undefined };
 };
 
 export default async function EventPage({ params }: EventPageProps) {
