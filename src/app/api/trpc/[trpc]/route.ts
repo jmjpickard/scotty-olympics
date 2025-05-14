@@ -10,8 +10,8 @@ import type { Database } from "~/lib/supabase/types"; // Assuming types are here
 /**
  * tRPC request handler using @supabase/ssr for proper cookie handling
  */
-const handler = (req: NextRequest) => {
-  // Create a response object to potentially pass to Supabase client for cookie setting
+const handler = async (req: NextRequest) => {
+  // Create a response object that we'll modify with cookies and return
   const res = NextResponse.next();
 
   // Create Supabase client within the request handler, passing cookie methods directly
@@ -28,11 +28,7 @@ const handler = (req: NextRequest) => {
         },
         setAll: (cookiesList) => {
           cookiesList.forEach(({ name, value, ...options }) => {
-            req.cookies.set({
-              name,
-              value,
-              ...options,
-            });
+            // Set cookies on both the request (for the current handler) and response (for the client)
             res.cookies.set({
               name,
               value,
@@ -44,24 +40,28 @@ const handler = (req: NextRequest) => {
     },
   );
 
-  return fetchRequestHandler({
+  // Get the session before handling the request to refresh auth tokens if needed
+  await supabase.auth.getSession();
+
+  const response = await fetchRequestHandler({
     endpoint: "/api/trpc",
     req,
     router: appRouter,
     createContext: async () => {
       // Fetch authenticated user within the createContext callback using getUser()
       const {
-        data: { user }, // Use getUser() which returns the user object directly
+        data: { user },
       } = await supabase.auth.getUser();
       // We might still need the session object if other parts rely on it
       const {
         data: { session },
       } = await supabase.auth.getSession();
+
       return createTRPCContext({
         headers: req.headers,
         supabase: supabase,
-        session: session, // Pass the session from getSession()
-        user: user, // Pass the authenticated user from getUser()
+        session: session,
+        user: user,
       });
     },
     onError:
@@ -72,6 +72,16 @@ const handler = (req: NextRequest) => {
             );
           }
         : undefined,
+  });
+
+  // Copy cookies from our response object to a new NextResponse containing the tRPC response
+  return new NextResponse(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: new Headers([
+      ...Array.from(response.headers.entries()),
+      ...Array.from(res.headers.entries()),
+    ]),
   });
 };
 
