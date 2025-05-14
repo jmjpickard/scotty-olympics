@@ -6,14 +6,14 @@ import { notFound } from "next/navigation";
 import { db } from "~/server/db";
 import EventContent from "./eventContent";
 
-type EventPageProps = {
+type Props = {
   params: {
     id: string;
   };
   searchParams: { [key: string]: string | string[] | undefined };
 };
 
-export default async function EventPage({ params }: EventPageProps) {
+export default async function EventPage({ params }: Props) {
   // Check if event exists
   const event = await db.event.findUnique({
     where: {
