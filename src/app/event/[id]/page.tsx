@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { HydrateClient } from "~/trpc/server";
-
 import { notFound } from "next/navigation";
 import { db } from "~/server/db";
 import EventContent from "./eventContent";
@@ -9,12 +8,14 @@ import EventContent from "./eventContent";
 export default async function EventPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
+
   // Check if event exists
   const event = await db.event.findUnique({
     where: {
-      id: params.id,
+      id,
     },
   });
 
@@ -42,7 +43,7 @@ export default async function EventPage({
 
   return (
     <HydrateClient>
-      <EventContent eventId={params.id} currentUser={user} />
+      <EventContent eventId={id} currentUser={user} />
     </HydrateClient>
   );
 }
