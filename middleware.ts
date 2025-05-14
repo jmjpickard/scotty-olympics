@@ -19,43 +19,24 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
+        getAll: () => {
+          return Array.from(request.cookies.getAll()).map((cookie) => ({
+            name: cookie.name,
+            value: cookie.value,
+          }));
         },
-        set(name: string, value: string, options: CookieOptions) {
-          // If the cookie is set, update the request cookies and response cookies
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-        },
-        remove(name: string, options: CookieOptions) {
-          // If the cookie is removed, update the request cookies and response cookies
-          request.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
+        setAll: (cookiesList) => {
+          cookiesList.forEach(({ name, value, ...options }) => {
+            request.cookies.set({
+              name,
+              value,
+              ...options,
+            });
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+            });
           });
         },
       },
@@ -64,7 +45,6 @@ export async function middleware(request: NextRequest) {
 
   // Refresh session if expired - required for Server Components
   // https://supabase.com/docs/guides/auth/server-side/nextjs#managing-session-with-middleware
-  // IMPORTANT: Avoid await supabase.auth.getUser() here as it triggers middleware loops in current Next.js versions
   await supabase.auth.getSession();
 
   return response;

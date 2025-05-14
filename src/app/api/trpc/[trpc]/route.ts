@@ -1,6 +1,6 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { type NextRequest, NextResponse } from "next/server";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 
 import { env } from "~/env";
 import { appRouter } from "~/server/api/root";
@@ -20,20 +20,25 @@ const handler = (req: NextRequest) => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value;
+        getAll: () => {
+          return Array.from(req.cookies.getAll()).map((cookie) => ({
+            name: cookie.name,
+            value: cookie.value,
+          }));
         },
-        set(name: string, value: string, options: CookieOptions) {
-          // Set cookie on the request object for subsequent reads in the same request flow
-          req.cookies.set({ name, value, ...options });
-          // Also set cookie on the response object to send it back to the browser
-          res.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          // Remove cookie from the request object
-          req.cookies.set({ name, value: "", ...options });
-          // Also set removal cookie on the response object
-          res.cookies.set({ name, value: "", ...options });
+        setAll: (cookiesList) => {
+          cookiesList.forEach(({ name, value, ...options }) => {
+            req.cookies.set({
+              name,
+              value,
+              ...options,
+            });
+            res.cookies.set({
+              name,
+              value,
+              ...options,
+            });
+          });
         },
       },
     },

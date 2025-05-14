@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHydrationHelpers } from "@trpc/react-query/rsc";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 
@@ -19,21 +19,21 @@ const createContext = cache(async () => {
   heads.set("x-trpc-source", "rsc");
 
   // Create Supabase client for server components
+  const cookieStore = await cookies();
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        // Server components don't have access to cookies directly,
-        // so we use a no-op implementation
-        get: () => undefined,
-        set: () => {
-          // No-op implementation for server components
-          return;
+        getAll: () => {
+          return Array.from(cookieStore.getAll()).map((cookie) => ({
+            name: cookie.name,
+            value: cookie.value,
+          }));
         },
-        remove: () => {
-          // No-op implementation for server components
-          return;
+        setAll: () => {
+          // This is a no-op in RSC because we can't set cookies in server components
+          // The cookies will be set in middleware or client components
         },
       },
     },
