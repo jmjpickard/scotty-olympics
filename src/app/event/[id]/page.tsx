@@ -39,7 +39,7 @@ export default async function EventPage() {
 
   return (
     <HydrateClient>
-      <EventContent eventId={params.id} currentUser={user} />
+      <EventContent eventId={id as string} currentUser={user} />
     </HydrateClient>
   );
 }
