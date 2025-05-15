@@ -49,4 +49,48 @@ export const userRouter = createTRPCRouter({
         });
       }
     }),
+
+  updateName: protectedProcedure
+    .input(z.object({ name: z.string().min(1, "Name cannot be empty") }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const userId = ctx.user?.id;
+
+        if (!userId) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "User ID not found in session",
+          });
+        }
+
+        console.log(
+          `[updateName] START - User: ${userId}, Name: ${input.name}`,
+        );
+
+        const updatedParticipant = await db.participant.update({
+          where: {
+            userId: userId,
+          },
+          data: {
+            name: input.name,
+          },
+        });
+
+        return {
+          success: true,
+          message: "Name updated successfully",
+          name: updatedParticipant.name,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        console.error("Unexpected error updating name:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "An unexpected error occurred while updating name",
+        });
+      }
+    }),
 });

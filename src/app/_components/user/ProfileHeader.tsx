@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { AvatarUpload } from "./AvatarUpload";
 import type { User } from "@supabase/supabase-js";
+import { api } from "~/trpc/react";
+import { toast } from "sonner"; // Assuming sonner is used for notifications
 
 interface ProfileHeaderProps {
   participant: {
@@ -28,12 +30,43 @@ export const ProfileHeader = ({
 }: ProfileHeaderProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(participant.name ?? "");
+  const [currentParticipantName, setCurrentParticipantName] = useState(
+    participant.name ?? "Athlete",
+  );
+
+  const utils = api.useUtils();
+  const updateNameMutation = api.user.updateName.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message);
+      setIsEditing(false);
+      setCurrentParticipantName(data.name ?? "Athlete");
+      // Invalidate relevant queries to refetch data, e.g., participant data
+      void utils.participant.getParticipantWithScores.invalidate({
+        participantId: participant.id,
+      });
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to update name.");
+    },
+  });
 
   const handleSave = () => {
-    // In a real implementation, we would save the name to the database
-    // For now, we'll just toggle the editing state
-    setIsEditing(false);
+    if (name.trim() === "") {
+      toast.error("Name cannot be empty.");
+      return;
+    }
+    if (name === participant.name) {
+      setIsEditing(false); // No change, just exit editing mode
+      return;
+    }
+    updateNameMutation.mutate({ name });
   };
+
+  // Update local name state if participant prop changes
+  useEffect(() => {
+    setName(participant.name ?? "");
+    setCurrentParticipantName(participant.name ?? "Athlete");
+  }, [participant.name]);
 
   return (
     <div className="border-greek-gold/30 mb-8 rounded-lg border bg-white/10 p-6 shadow-md">
@@ -82,8 +115,8 @@ export const ProfileHeader = ({
                   </button>
                 </div>
               ) : (
-                <h1 className="text-2xl font-bold md:text-3xl">
-                  {participant.name ?? "Athlete"}
+                <h1 className="text-2xl font-bold break-all md:text-3xl">
+                  {currentParticipantName}
                   {participant.isAdmin && (
                     <span className="ml-2 rounded bg-purple-600 px-2 py-1 text-xs font-normal">
                       Admin
@@ -92,7 +125,7 @@ export const ProfileHeader = ({
                 </h1>
               )}
               {participant.email && (
-                <p className="mt-1 text-sm text-gray-300">
+                <p className="mt-1 text-sm break-all text-gray-300">
                   {participant.email}
                 </p>
               )}
@@ -101,9 +134,17 @@ export const ProfileHeader = ({
             {isOwnProfile && !isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="bg-greek-blue hover:bg-greek-blue-light rounded px-4 py-2 text-sm"
+                className="bg-greek-blue hover:bg-greek-blue-light ml-2 shrink-0 rounded px-4 py-2 text-sm"
               >
                 Edit Profile
+              </button>
+            )}
+            {isEditing && (
+              <button
+                onClick={() => setIsEditing(false)}
+                className="ml-2 shrink-0 rounded bg-gray-500 px-3 py-1 text-sm hover:bg-gray-600"
+              >
+                Cancel
               </button>
             )}
           </div>

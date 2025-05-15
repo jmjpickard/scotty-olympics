@@ -4,7 +4,6 @@ import { createServerClient } from "@supabase/ssr";
 import { HydrateClient } from "~/trpc/server";
 import OlympicsContent from "./olympicsContent";
 import type { Database } from "~/lib/supabase/types";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { CookieOptions } from "@supabase/ssr"; // Import CookieOptions if needed for stubs
 import type { User } from "@supabase/supabase-js";
 
@@ -27,10 +26,18 @@ export default async function OlympicsPage() {
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
-        // Server Components are read-only, so set/remove are not needed here
-        // but the types might expect them. Provide stubs if necessary.
-        // set(name: string, value: string, options: CookieOptions) {},
-        // remove(name: string, options: CookieOptions) {},
+        // Server Components are read-only, so set/remove are not strictly needed
+        // for typical read operations, but providing stubs can prevent issues
+        // if the Supabase client attempts to use them internally during auth flows or error handling.
+        set(name: string, value: string, options: CookieOptions) {
+          // No-op for server components, but satisfies the type requirement.
+          // Consider logging if you need to debug cookie set attempts on the server.
+          // console.log(`[Server] Attempted to set cookie: ${name}`, { value, options });
+        },
+        remove(name: string, options: CookieOptions) {
+          // No-op for server components.
+          // console.log(`[Server] Attempted to remove cookie: ${name}`, { options });
+        },
       },
     },
   );
