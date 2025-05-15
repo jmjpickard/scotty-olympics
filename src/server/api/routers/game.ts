@@ -82,13 +82,11 @@ export const gameRouter = createTRPCRouter({
       };
     }),
 
-  // Get all active games (waiting or in progress)
+  // Get all active games (waiting for players)
   getActiveGames: publicProcedure.query(async ({ ctx }) => {
     const games = await ctx.db.game.findMany({
       where: {
-        status: {
-          in: ["waiting", "starting", "in_progress"],
-        },
+        status: "waiting", // Only fetch games in 'waiting' state
       },
       include: {
         participants: {

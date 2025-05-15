@@ -25,6 +25,7 @@ interface Game {
   participants: GameParticipantFromApi[]; // Use the updated interface
   // Add other game properties as needed
 }
+import { GameSelection } from "./GameSelection"; // Added
 import { GameLobby } from "./GameLobby";
 import { GameCountdown } from "./GameCountdown";
 import { GamePlay } from "./GamePlay";
@@ -38,6 +39,7 @@ interface GameModalProps {
 }
 
 type GameState =
+  | "gameSelection" // Added
   | "creating"
   | "lobby"
   | "countdown"
@@ -56,7 +58,7 @@ export const GameModal: React.FC<GameModalProps> = ({
   participantId,
 }) => {
   const [gameState, setGameState] = useState<GameState>(
-    initialGameId ? "lobby" : "creating",
+    initialGameId ? "lobby" : "gameSelection", // Changed initial state
   );
   const [gameId, setGameId] = useState<string | undefined>(initialGameId);
   const [_tapCount, setTapCount] = useState(0); // Local tap count, GamePlay has its own for display
@@ -121,16 +123,17 @@ export const GameModal: React.FC<GameModalProps> = ({
 
   // Create a new game on initial mount if no initialGameId is provided
   // This handles the scenario where the modal is opened to start a fresh game, not join one.
+  // This useEffect is now primarily for the "creating" loading state after "Create New Game" is clicked.
   useEffect(() => {
     if (
-      !initialGameId &&
-      gameState === "creating" &&
-      !gameId && // Ensure no gameId is already set (e.g. from a failed previous attempt or play again)
-      createGameMutation.status !== "pending"
+      gameState === "creating" && // Only when explicitly in "creating" state
+      !gameId &&
+      createGameMutation.status !== "pending" &&
+      !createGameMutation.isSuccess // Ensure it doesn't re-trigger if already successful from a previous action
     ) {
       createGameMutation.mutate();
     }
-  }, [initialGameId, gameState, gameId, createGameMutation]);
+  }, [gameState, gameId, createGameMutation]);
 
   // Join game if initialGameId is provided - only once
   const joinedRef = useRef(false);
@@ -168,6 +171,51 @@ export const GameModal: React.FC<GameModalProps> = ({
     }
   };
 
+  // Handle joining a game from the selection screen
+  const handleJoinSelectedGame = (selectedGameId: string) => {
+    setGameId(selectedGameId); // Set the gameId first
+    // joinGameMutation will be called by the useEffect that listens to initialGameId/gameId changes
+    // For direct join, we need to ensure the mutation is called and then transition.
+    joinGameMutation.mutate(
+      { gameId: selectedGameId },
+      {
+        onSuccess: () => {
+          setGameState("lobby");
+        },
+        onError: (error) => {
+          // Handle potential errors, e.g., game no longer available
+          console.error("Failed to join game:", error);
+          setGameState("gameSelection"); // Go back to selection on error
+          // Optionally, display an error message to the user
+        },
+      },
+    );
+  };
+
+  // Handle creating a new game from the selection screen
+  const handleCreateNewGame = () => {
+    // Reset relevant states before creating a new game
+    setGameId(undefined);
+    createGameMutation.reset();
+    joinGameMutation.reset();
+    startGameMutation.reset();
+    updateTapCountMutation.reset();
+    finishGameMutation.reset();
+
+    setTapCount(0);
+    setStartTime(null);
+    setTimeRemaining(10000);
+    setIsFinished(false);
+    joinedRef.current = false;
+    lastRefetchTimeRef.current = 0;
+    if (gameTimerRef.current) {
+      clearInterval(gameTimerRef.current);
+      gameTimerRef.current = null;
+    }
+
+    setGameState("creating"); // Transition to "creating" state, useEffect will trigger mutation
+  };
+
   // Handle play again
   const handlePlayAgain = () => {
     if (gameTimerRef.current) {
@@ -192,12 +240,12 @@ export const GameModal: React.FC<GameModalProps> = ({
     // Explicitly set gameId to undefined before setting gameState to "creating",
     // to ensure any effects relying on gameId being undefined for creation work correctly.
     setGameId(undefined);
-    setGameState("creating"); // Show user we are creating a new game
+    // setGameState("creating"); // This will be handled by the createGameMutation.onSuccess
 
     // "Play Again" always means creating a brand new game.
-    // Directly call createGameMutation. onSuccess will set the new gameId and move to "lobby".
+    // The existing createGameMutation.mutate() call will set gameId and transition to lobby on success.
     if (createGameMutation.status !== "pending") {
-      createGameMutation.mutate();
+      createGameMutation.mutate(); // onSuccess will set gameId and setGameState("lobby")
     }
   };
 
@@ -217,6 +265,13 @@ export const GameModal: React.FC<GameModalProps> = ({
     }
 
     switch (gameState) {
+      case "gameSelection": // Added case
+        return (
+          <GameSelection
+            onJoinGame={handleJoinSelectedGame}
+            onCreateGame={handleCreateNewGame}
+          />
+        );
       case "creating":
         return (
           <div className="flex h-64 items-center justify-center">
@@ -301,40 +356,48 @@ export const GameModal: React.FC<GameModalProps> = ({
   // Update game state based on game data
   useEffect(() => {
     if (gameData) {
-      if (gameData.status === "waiting" && gameState !== "lobby") {
-        setGameState("lobby");
+      // If game is waiting and we are not already in lobby or game selection (e.g. after creation)
+      if (
+        gameData.status === "waiting" &&
+        gameState !== "lobby" &&
+        gameState !== "gameSelection" // Don't force out of game selection if just polling
+      ) {
+        // Only transition to lobby if we have a gameId, implying we've joined or created.
+        // If gameId is not set, and we are in "gameSelection", stay there.
+        if (gameId) {
+          setGameState("lobby");
+        }
       } else if (
         gameData.status === "starting" &&
         gameState !== "countdown" &&
         gameState !== "synchronizing" &&
-        gameState !== "playing" && // Avoid reverting from playing/syncing to countdown
+        gameState !== "playing" &&
         gameData.startedAt
       ) {
         setStartTime(new Date(gameData.startedAt));
         setGameState("countdown");
       } else if (
         gameData.status === "in_progress" &&
-        (gameState === "lobby" || // Allow joining an in-progress game from lobby
+        (gameState === "lobby" ||
           gameState === "countdown" ||
           gameState === "synchronizing") &&
-        !isFinished // Ensure client doesn't think it's already over
+        !isFinished
       ) {
-        setGameState("playing"); // This will trigger the game timer useEffect
+        setGameState("playing");
       } else if (
         gameData.status === "finished" &&
-        gameState !== "results" && // Avoid multiple transitions to results
-        !isFinished // Use client-side flag to ensure one-time effect
+        gameState !== "results" &&
+        !isFinished
       ) {
         setIsFinished(true);
         setGameState("results");
         if (gameTimerRef.current) {
-          // Stop game timer if server finishes game
           clearInterval(gameTimerRef.current);
           gameTimerRef.current = null;
         }
       }
     }
-  }, [gameData, gameState, isFinished]); // Dependencies reviewed for this specific effect
+  }, [gameData, gameState, isFinished, gameId]); // Added gameId to dependencies
 
   // Effect to manage the 10-second game timer
   useEffect(() => {
