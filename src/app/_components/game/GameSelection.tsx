@@ -1,7 +1,6 @@
 "use client";
 
-import { api } from "~/trpc/react";
-import type { RouterOutputs } from "~/trpc/shared";
+import { api, type RouterOutputs } from "~/trpc/react";
 
 type GameWithParticipants = RouterOutputs["game"]["getActiveGames"][number];
 
