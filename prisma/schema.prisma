@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
     provider = "postgresql"
-    url      = env("DATABASE_URL") // Use the DATABASE_URL environment variable
+    url      = env("DATABASE_URL") // Use the DATABASE_URL environment variables
 }
 
 model Event {
