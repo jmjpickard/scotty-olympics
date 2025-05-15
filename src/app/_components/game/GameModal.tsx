@@ -5,22 +5,24 @@ import { api } from "~/trpc/react";
 import type { SetStateAction } from "react";
 
 // Define types for game data
-interface GameParticipant {
-  participantId: string;
-  id: string;
+// This interface should match the flattened structure returned by game.getGame
+interface GameParticipantFromApi {
+  id: string; // This is GameParticipant.id from Prisma
+  gameId: string;
+  participantId: string; // This is the actual Participant.id from Prisma
   tapCount: number;
-  participant: {
-    id: string;
-    email: string;
-  };
-  // Add other participant properties as needed
+  rank?: number | null;
+  scoreAwarded?: number | null;
+  name?: string | null; // Direct property
+  email: string; // Direct property
+  avatarUrl?: string | null; // Direct property
 }
 
 interface Game {
   id: string;
   status: "waiting" | "starting" | "in_progress" | "finished";
   startedAt?: string;
-  participants: GameParticipant[];
+  participants: GameParticipantFromApi[]; // Use the updated interface
   // Add other game properties as needed
 }
 import { GameLobby } from "./GameLobby";
@@ -229,9 +231,11 @@ export const GameModal: React.FC<GameModalProps> = ({
             participants={
               gameData?.participants
                 ? gameData.participants.map((gp) => ({
-                    id: gp.participantId,
-                    email: gp.participant.email,
-                    tapCount: gp.tapCount,
+                    id: gp.participantId, // GameLobby expects participant's actual ID as 'id'
+                    name: gp.name,
+                    email: gp.email,
+                    avatarUrl: gp.avatarUrl,
+                    // tapCount is not used by GameLobby directly
                   }))
                 : []
             }
@@ -268,7 +272,24 @@ export const GameModal: React.FC<GameModalProps> = ({
         return (
           <GameResults
             gameId={gameId ?? ""}
-            participants={gameData?.participants ?? []}
+            participants={
+              gameData?.participants
+                ? gameData.participants.map((gp) => ({
+                    // Transform to the nested structure GameResults expects
+                    id: gp.id, // GameParticipant.id
+                    participantId: gp.participantId, // Participant.id
+                    tapCount: gp.tapCount,
+                    rank: gp.rank,
+                    scoreAwarded: gp.scoreAwarded,
+                    participant: {
+                      id: gp.participantId, // Participant.id
+                      name: gp.name,
+                      email: gp.email,
+                      avatarUrl: gp.avatarUrl,
+                    },
+                  }))
+                : []
+            }
             onPlayAgain={handlePlayAgain}
           />
         );
