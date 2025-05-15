@@ -15,29 +15,36 @@ export const RowingAnimation: React.FC<RowingAnimationProps> = ({
   tapCount,
   isActive,
 }) => {
-  const [animationSpeed, setAnimationSpeed] = useState<number>(1);
-  const [shipPosition, setShipPosition] = useState<number>(0);
+  const animationSpeedRef = useRef<number>(1); // Changed to ref
+  const shipPositionRef = useRef<number>(0); // Changed to ref
   const requestRef = useRef<number | undefined>(undefined);
   const previousTimeRef = useRef<number | undefined>(undefined);
   const baseSpeed = 0.5; // Base speed in pixels per millisecond
   const maxSpeed = 3; // Maximum speed multiplier
   const deceleration = 0.95; // Rate at which speed decreases
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [currentTapCount, setCurrentTapCount] = useState(0); // To display tap count
 
-  // Calculate animation speed based on tap count
+  // Update animation speed based on tap count (prop)
   useEffect(() => {
     if (isActive && tapCount > 0) {
       // Increase speed based on tap count, but cap it at maxSpeed
       const newSpeed = Math.min(1 + tapCount / 50, maxSpeed);
-      setAnimationSpeed(newSpeed);
+      animationSpeedRef.current = newSpeed; // Update ref
+      setCurrentTapCount(tapCount); // Update state for display
+    } else if (!isActive) {
+      animationSpeedRef.current = 1; // Reset speed when not active
+      shipPositionRef.current = 0; // Reset position
+      setCurrentTapCount(0);
     }
   }, [tapCount, isActive]);
 
   // Animation loop
   const animate = (time: number) => {
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     if (previousTimeRef.current === undefined) {
       previousTimeRef.current = time;
+      requestRef.current = requestAnimationFrame(animate);
+      return;
     }
 
     const deltaTime = time - previousTimeRef.current;
@@ -45,24 +52,30 @@ export const RowingAnimation: React.FC<RowingAnimationProps> = ({
 
     // Update ship position
     if (isActive) {
-      setShipPosition((prevPosition) => {
-        // Move ship based on current speed
-        return prevPosition + baseSpeed * animationSpeed * deltaTime;
-      });
+      // Move ship based on current speed
+      shipPositionRef.current +=
+        baseSpeed * animationSpeedRef.current * deltaTime;
 
       // Gradually decrease speed (simulates water resistance)
-      setAnimationSpeed((prevSpeed) => prevSpeed * deceleration);
+      animationSpeedRef.current *= deceleration;
+      if (animationSpeedRef.current < 0.1) {
+        // Prevent speed from becoming too small
+        animationSpeedRef.current = 0.1;
+      }
     }
 
-    // Draw the animation
-    drawAnimation();
+    // Draw the animation using current ref values
+    drawAnimation(shipPositionRef.current, animationSpeedRef.current);
 
     // Continue animation loop
     requestRef.current = requestAnimationFrame(animate);
   };
 
   // Draw the ship and oars on the canvas
-  const drawAnimation = () => {
+  const drawAnimation = (
+    currentShipPosition: number,
+    currentAnimationSpeed: number,
+  ) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -73,7 +86,7 @@ export const RowingAnimation: React.FC<RowingAnimationProps> = ({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Calculate ship position within the canvas (loop when it goes off-screen)
-    const shipX = (shipPosition % (canvas.width + 100)) - 100;
+    const shipX = (currentShipPosition % (canvas.width + 100)) - 100;
 
     // Draw water
     ctx.fillStyle = "#3b82f6"; // Blue water
@@ -119,7 +132,8 @@ export const RowingAnimation: React.FC<RowingAnimationProps> = ({
       const oarY = canvas.height - 40;
 
       // Animate oar angle based on time and position
-      const angle = Math.sin(shipPosition / 20 + i * oarPhaseOffset) * 0.3;
+      const angle =
+        Math.sin(currentShipPosition / 20 + i * oarPhaseOffset) * 0.3;
 
       // Draw oar
       ctx.save();
@@ -149,10 +163,8 @@ export const RowingAnimation: React.FC<RowingAnimationProps> = ({
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
       }
-      // Reset animation state
-      setAnimationSpeed(1);
-      setShipPosition(0);
-      previousTimeRef.current = 0;
+      // Reset animation state (refs are reset in the tapCount useEffect)
+      previousTimeRef.current = undefined; // Reset for next activation
 
       // Clear canvas
       const canvas = canvasRef.current;
@@ -176,12 +188,12 @@ export const RowingAnimation: React.FC<RowingAnimationProps> = ({
       <canvas ref={canvasRef} width={400} height={150} className="w-full" />
       {isActive && (
         <div className="mt-2 text-center text-sm text-gray-400">
-          <span className="font-bold text-white">{tapCount}</span> taps
-          {animationSpeed > 1.5 && (
+          <span className="font-bold text-white">{currentTapCount}</span> taps
+          {animationSpeedRef.current > 1.5 && ( // Use ref value for display condition
             <span className="ml-2 text-green-400">
-              {animationSpeed > 2.5
+              {animationSpeedRef.current > 2.5
                 ? "Incredible speed!"
-                : animationSpeed > 2
+                : animationSpeedRef.current > 2
                   ? "Great rowing!"
                   : "Keep going!"}
             </span>
