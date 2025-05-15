@@ -6,8 +6,10 @@ import { RowingAnimation } from "./RowingAnimation";
 interface GamePlayProps {
   gameId: string;
   isActive: boolean;
-  onUpdateTapCount: (tapCount: number) => void;
+  onUpdateTapCount: (tapCount: number) => void; // This will still be used for periodic updates
   timeRemaining: number;
+  tapCount: number; // Added: current tap count from parent
+  setTapCount: (updater: (prevTapCount: number) => number) => void; // Added: setter from parent
 }
 
 /**
@@ -18,8 +20,10 @@ export const GamePlay: React.FC<GamePlayProps> = ({
   isActive,
   onUpdateTapCount,
   timeRemaining,
+  tapCount, // Added
+  setTapCount, // Added
 }) => {
-  const [tapCount, setTapCount] = useState<number>(0);
+  // const [tapCount, setTapCount] = useState<number>(0); // Removed: Managed by parent
   const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
   const [tapsPerSecond, setTapsPerSecond] = useState<number>(0);
   const tapAreaRef = useRef<HTMLDivElement>(null);

@@ -411,12 +411,21 @@ export const gameRouter = createTRPCRouter({
         avatarUrl: gp.participant.avatarUrl,
       }));
 
-      const sortedParticipants = [...gameParticipantsForRanking].sort(
+      const sortedParticipantsRaw = [...gameParticipantsForRanking].sort(
         (a, b) => b.tapCount - a.tapCount,
       );
 
-      const pointsMap = [100, 75, 50]; // 1st, 2nd, 3rd place points
-      const defaultPoints = 10; // Participation points
+      // Assign ranks considering ties
+      const sortedParticipants = sortedParticipantsRaw.map((p, index, arr) => {
+        let rank = index + 1;
+        if (index > 0 && p.tapCount === arr[index - 1]?.tapCount) {
+          // If current participant's tap count is same as previous, they get the same rank
+          rank = arr[index - 1]?.rank ?? rank;
+        }
+        return { ...p, rank };
+      });
+
+      const hasMultipleParticipants = sortedParticipants.length > 1;
 
       let rowHarderEvent = await ctx.db.event.findFirst({
         where: { name: "Row Harder!" },
@@ -450,23 +459,18 @@ export const gameRouter = createTRPCRouter({
 
       const transactionOperations: Prisma.PrismaPromise<unknown>[] = [];
 
-      for (let i = 0; i < sortedParticipants.length; i++) {
-        const gp = sortedParticipants[i]; // This is the mapped structure
-        const rank = i + 1;
-        const scoreAwarded = i < 3 ? pointsMap[i] : defaultPoints;
-
-        if (!gp) {
-          continue; // Should be logically impossible, but satisfies TS
-        }
+      for (const gp of sortedParticipants) {
+        // Iterate over new sortedParticipants with correct ranks
+        const scoreAwarded = hasMultipleParticipants && gp.rank === 1 ? 1 : 0;
 
         transactionOperations.push(
           ctx.db.gameParticipant.update({
             where: { id: gp.id }, // gp.id is GameParticipant's ID
-            data: { rank, scoreAwarded },
+            data: { rank: gp.rank, scoreAwarded }, // Use gp.rank which handles ties
           }),
         );
 
-        const finalPointsAwarded = scoreAwarded ?? defaultPoints;
+        const finalPointsAwarded = scoreAwarded; // Use the new scoring logic
         const existingScore = existingScoresMap.get(
           `${gp.participantId}_${rowHarderEvent.id}`,
         );
@@ -477,7 +481,7 @@ export const gameRouter = createTRPCRouter({
               where: { id: existingScore.id },
               data: {
                 points: existingScore.points + finalPointsAwarded,
-                rank: Math.min(existingScore.rank, rank),
+                rank: Math.min(existingScore.rank, gp.rank), // Use gp.rank
               },
             }),
           );
@@ -487,7 +491,7 @@ export const gameRouter = createTRPCRouter({
               data: {
                 participantId: gp.participantId,
                 eventId: rowHarderEvent.id,
-                rank,
+                rank: gp.rank, // Use gp.rank
                 points: finalPointsAwarded,
               },
             }),

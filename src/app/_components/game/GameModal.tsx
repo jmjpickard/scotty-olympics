@@ -58,10 +58,10 @@ export const GameModal: React.FC<GameModalProps> = ({
   participantId,
 }) => {
   const [gameState, setGameState] = useState<GameState>(
-    initialGameId ? "lobby" : "gameSelection", // Changed initial state
+    initialGameId ? "lobby" : "gameSelection",
   );
   const [gameId, setGameId] = useState<string | undefined>(initialGameId);
-  const [_tapCount, setTapCount] = useState(0); // Local tap count, GamePlay has its own for display
+  const [tapCount, setTapCount] = useState(0); // Renamed from _tapCount, will be passed to GamePlay
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(10000); // 10 seconds in ms
   const [isFinished, setIsFinished] = useState(false);
@@ -152,14 +152,13 @@ export const GameModal: React.FC<GameModalProps> = ({
     setGameState("synchronizing");
   };
 
-  // Handle tap count update
-  const handleUpdateTapCount = (count: number) => {
-    // setTapCount(count); // GameModal's tapCount state isn't critical; GamePlay manages its own for display and passes it here.
+  // Handle tap count update (called periodically by GamePlay)
+  const handleUpdateTapCount = (currentTaps: number) => {
     // Only send updates if the game is actively playing on the client and not yet marked as finished.
     if (gameId && gameState === "playing" && !isFinished) {
       updateTapCountMutation.mutate({
         gameId,
-        tapCount: count,
+        tapCount: currentTaps,
       });
     }
   };
@@ -321,6 +320,8 @@ export const GameModal: React.FC<GameModalProps> = ({
             isActive={gameState === "playing" && timeRemaining > 0}
             onUpdateTapCount={handleUpdateTapCount}
             timeRemaining={timeRemaining}
+            tapCount={tapCount} // Pass state down
+            setTapCount={setTapCount} // Pass setter down
           />
         );
       case "results":
@@ -423,11 +424,39 @@ export const GameModal: React.FC<GameModalProps> = ({
             // Optimistically update client state to prevent further tap submissions
             // before the mutation completes. This ensures that any immediate subsequent
             // calls to handleUpdateTapCount will see the game as finished.
-            setIsFinished(true);
-            setGameState("results");
+            setIsFinished(true); // Optimistically set finished
+            // setGameState("results"); // Defer this until after mutations
 
-            // Now call the mutation. The onSuccess callback will affirm these states.
-            finishGameMutation.mutate({ gameId });
+            // Send final tap count, then finish the game
+            if (gameId) {
+              updateTapCountMutation.mutate(
+                {
+                  gameId,
+                  tapCount: tapCount, // Use the tapCount state from GameModal
+                },
+                {
+                  onSettled: () => {
+                    // Regardless of success/failure of tap update, finish the game
+                    // and then transition to results.
+                    finishGameMutation.mutate(
+                      { gameId },
+                      {
+                        onSuccess: () => {
+                          setGameState("results"); // Transition to results after game is successfully finished
+                        },
+                        onError: () => {
+                          // If finishing game fails, still go to results to show last known state or error
+                          setGameState("results");
+                        },
+                      },
+                    );
+                  },
+                },
+              );
+            } else {
+              // Should not happen if gameId was required to be in "playing" state
+              setGameState("results"); // Fallback to results
+            }
           }
         }
       }, 100);
