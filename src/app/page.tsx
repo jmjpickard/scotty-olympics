@@ -12,7 +12,7 @@ export default async function Home() {
             <h1 className="relative text-center text-5xl font-extrabold tracking-tight sm:text-[5rem]">
               <span className="mb-2 inline-block">🏛️</span>
               <br />
-              Scotty{"'"}s <span className="text-greek-gold">Olympics</span>
+              Scotty&apos;s <span className="text-greek-gold">Olympics</span>
             </h1>
           </div>
 
@@ -29,7 +29,8 @@ export default async function Home() {
 
           {/* Hero text */}
           <p className="mb-6 max-w-2xl text-center text-xl text-white/80">
-            It's Harry Scott's stag. Let's play a few games and have a laugh.
+            It's Harry Scott&apos;s stag. Let's play a few games and have a
+            laugh.
             <br />
           </p>
 
