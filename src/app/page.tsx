@@ -29,8 +29,8 @@ export default async function Home() {
 
           {/* Hero text */}
           <p className="mb-6 max-w-2xl text-center text-xl text-white/80">
-            It's Harry Scott&apos;s stag. Let's play a few games and have a
-            laugh.
+            It&apos;s Harry Scott&apos;s stag. Let&apos;s play a few games and
+            have a laugh.
             <br />
           </p>
 
