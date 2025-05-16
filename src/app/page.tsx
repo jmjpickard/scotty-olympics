@@ -9,10 +9,10 @@ export default async function Home() {
           {/* Greek column decoration */}
           <div className="w-full max-w-4xl">
             {/* Title with laurel wreath */}
-            <h1 className="laurel-decoration relative text-center text-5xl font-extrabold tracking-tight sm:text-[5rem]">
+            <h1 className="relative text-center text-5xl font-extrabold tracking-tight sm:text-[5rem]">
               <span className="mb-2 inline-block">🏛️</span>
               <br />
-              Scotty <span className="text-greek-gold">Olympics</span>
+              Scotty{"'"}s <span className="text-greek-gold">Olympics</span>
             </h1>
           </div>
 
@@ -20,7 +20,7 @@ export default async function Home() {
           <div className="border-greek-gold relative mb-4 h-72 w-72 overflow-hidden rounded-full border-4 shadow-lg sm:h-96 sm:w-96">
             <div className="absolute inset-0 flex items-center justify-center bg-white/10">
               <img
-                src="/harry.png"
+                src="/harry.jpg"
                 alt="Harry"
                 className="h-full w-full object-cover"
               />
@@ -29,12 +29,12 @@ export default async function Home() {
 
           {/* Hero text */}
           <p className="mb-6 max-w-2xl text-center text-xl text-white/80">
-            Join the most prestigious sporting event in Scotty&apos;s realm.
-            Compete for glory, honor, and bragging rights!
+            It's Harry Scott's stag. Let's play a few games and have a laugh.
+            <br />
           </p>
 
           {/* CTA Buttons with improved styling */}
-          <div className="grid w-full max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8">
+          <div className="flex">
             <Link
               className="border-greek-gold/30 from-greek-blue to-greek-blue-dark hover:bg-greek-blue flex transform flex-col gap-4 rounded-xl border bg-gradient-to-r p-6 shadow-lg transition-all hover:scale-105"
               href="/olympics"
@@ -45,18 +45,6 @@ export default async function Home() {
               <div className="text-lg">
                 Check out the events, scores, and leaderboard for the Scotty
                 Olympics.
-              </div>
-            </Link>
-            <Link
-              className="border-greek-gold/30 bg-marble-texture text-greek-blue-dark flex transform flex-col gap-4 rounded-xl border p-6 shadow-lg transition-all hover:scale-105"
-              href="/auth"
-            >
-              <h3 className="flex items-center text-2xl font-bold">
-                <span className="mr-2">🏅</span> Join as Athlete
-              </h3>
-              <div className="text-lg">
-                Sign in to view your profile, update your avatar, and track your
-                Olympic journey.
               </div>
             </Link>
           </div>

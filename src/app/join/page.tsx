@@ -234,7 +234,7 @@ function JoinPageContent() {
             <div className="border-greek-gold relative mx-auto mb-6 h-48 w-48 overflow-hidden rounded-full border-4 shadow-lg">
               <div className="absolute inset-0 flex items-center justify-center bg-white/10">
                 <img
-                  src="/harry.png"
+                  src="/harry.jpg"
                   alt="Harry"
                   className="h-full w-full object-cover"
                 />
@@ -276,7 +276,7 @@ function JoinPageContent() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="focus:ring-greek-gold w-full rounded-md bg-white/20 px-3 py-2 text-white focus:outline-none focus:ring-2"
+                className="focus:ring-greek-gold w-full rounded-md bg-white/20 px-3 py-2 text-white focus:ring-2 focus:outline-none"
                 placeholder="Enter your name"
                 required
               />
@@ -342,7 +342,7 @@ function JoinPageContent() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="focus:ring-greek-gold w-full rounded-md bg-white/20 px-3 py-2 text-white focus:outline-none focus:ring-2"
+                className="focus:ring-greek-gold w-full rounded-md bg-white/20 px-3 py-2 text-white focus:ring-2 focus:outline-none"
                 placeholder="Enter a password"
                 required
               />
