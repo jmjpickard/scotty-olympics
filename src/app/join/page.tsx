@@ -116,111 +116,186 @@ function JoinPageContent() {
 
     try {
       if (!participantData?.email) {
-        throw new Error("Participant email not found");
+        setError(
+          "Participant email not found. Please try again or contact support.",
+        );
+        setIsLoading(false);
+        return;
       }
 
-      // 1. Use our server-side procedure to set the password for the user
-      // This uses the admin API and will work even if the user already exists
-      const passwordResult = await setUserPasswordMutation.mutateAsync({
-        email: participantData.email,
-        password: password,
-      });
-
-      if (!passwordResult.success) {
-        throw new Error("Failed to set password");
-      }
-
-      const userId = passwordResult.userId;
-
-      // 2. Upload the photo to Supabase Storage if available
-      let avatarUrl = null;
-      if (photo) {
-        console.log("[Join] Photo blob available, attempting to upload...");
-        const fileName = `${userId}/avatar-${Date.now()}.jpg`;
-        console.log(`[Join] Generated filename: ${fileName}`);
-
-        try {
-          // Explicitly await the upload operation
-          const { data: uploadData, error: uploadError } =
-            await supabase.storage.from("avatars").upload(fileName, photo);
-
-          if (uploadError) {
-            console.error("Error uploading avatar:", uploadError);
-            console.error("Upload error details:", JSON.stringify(uploadError));
-            throw new Error(`Upload failed: ${uploadError.message}`);
-          } else if (uploadData) {
-            console.log("[Join] Upload successful:", uploadData);
-
-            // Explicitly await getting the public URL
-            const { data: urlData } = supabase.storage
-              .from("avatars")
-              .getPublicUrl(fileName);
-
-            avatarUrl = urlData.publicUrl;
-            console.log(`[Join] Got public URL: ${avatarUrl}`);
-          } else {
-            console.error("[Join] Upload completed but no data returned");
-          }
-        } catch (uploadErr) {
-          console.error("[Join] Exception during upload:", uploadErr);
+      // Step 1: Set user password
+      let userId = "";
+      try {
+        console.log("[Join] Setting user password...");
+        const passwordResult = await setUserPasswordMutation.mutateAsync({
+          email: participantData.email,
+          password: password,
+        });
+        if (!passwordResult.success || !passwordResult.userId) {
+          // If success is false, or userId is missing, throw a generic error.
+          // Specific error messages would come from TRPCError if the mutation itself threw.
+          throw new Error("Failed to set password. Please try again.");
         }
-      } else {
-        console.log("[Join] No photo blob available to upload");
+        userId = passwordResult.userId;
+        console.log(`[Join] Password set successfully for userId: ${userId}`);
+      } catch (err) {
+        console.error("Error setting password:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to set password. Please try again.",
+        );
+        setIsLoading(false);
+        return;
       }
 
-      // 3. Update the participant record with the user ID and avatar URL
-      if (token && participantData) {
-        // Create or get participant
+      // Step 2: Create or get participant record
+      try {
+        console.log(
+          `[Join] Creating/getting participant record for userId: ${userId}`,
+        );
         await createParticipantMutation.mutateAsync({
           userId: userId,
           email: participantData.email,
           name: name,
         });
-
-        // Update avatar URL if available
-        if (avatarUrl) {
-          console.log(
-            `[Join] Updating avatar URL for user ${userId} to ${avatarUrl}`,
-          );
-          try {
-            // Explicitly await the avatar URL update
-            const avatarUpdateResult =
-              await updateAvatarUrlMutation.mutateAsync({
-                userId: userId,
-                avatarUrl: avatarUrl,
-              });
-            console.log(
-              `[Join] Avatar URL update successful:`,
-              avatarUpdateResult,
-            );
-
-            // Add a small delay to ensure database update is complete
-            await new Promise((resolve) => setTimeout(resolve, 500));
-          } catch (avatarError) {
-            console.error(`[Join] Error updating avatar URL:`, avatarError);
-            // Continue with the sign-up process even if avatar update fails
-          }
-        } else {
-          console.log(`[Join] No avatar URL to update for user ${userId}`);
-        }
+        console.log(`[Join] Participant record ensured for userId: ${userId}`);
+      } catch (err) {
+        console.error("Error creating/getting participant:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to save participant details. Please try again.",
+        );
+        // Note: We might have a user in Supabase Auth but no participant record.
+        // Depending on desired UX, could attempt to clean up or guide user.
+        // For now, we stop and show an error.
+        setIsLoading(false);
+        return;
       }
 
-      // 4. Sign in the user with the new password
+      // Step 3: Upload photo and update avatar URL if photo exists
+      let avatarUrl = null;
+      if (photo) {
+        console.log(
+          `[Join] Photo blob available for userId: ${userId}, attempting to upload...`,
+        );
+        const fileName = `${userId}/avatar.jpg`; // Consistent filename
+        const imageFile = new File([photo], "avatar.jpg", {
+          type: "image/jpeg",
+        });
+        console.log(`[Join] Uploading ${fileName} to Supabase storage...`);
+
+        try {
+          const { data: uploadData, error: uploadError } =
+            await supabase.storage.from("avatars").upload(fileName, imageFile, {
+              cacheControl: "3600",
+              upsert: true, // Use upsert for robust upload
+            });
+
+          if (uploadError) {
+            console.error("Error uploading avatar to Supabase:", uploadError);
+            throw new Error(`Upload failed: ${uploadError.message}`);
+          }
+
+          if (uploadData) {
+            console.log("[Join] Upload to Supabase successful:", uploadData);
+            const { data: urlData } = supabase.storage
+              .from("avatars")
+              .getPublicUrl(fileName);
+            avatarUrl = urlData.publicUrl;
+            console.log(`[Join] Got public URL: ${avatarUrl}`);
+          } else {
+            console.warn(
+              "[Join] Supabase upload returned no data, but no error. Assuming success for URL retrieval.",
+            );
+            // Attempt to get URL anyway, Supabase sometimes behaves this way with upsert
+            const { data: urlData } = supabase.storage
+              .from("avatars")
+              .getPublicUrl(fileName);
+            avatarUrl = urlData.publicUrl;
+            if (avatarUrl) {
+              console.log(`[Join] Got public URL after all: ${avatarUrl}`);
+            } else {
+              console.error(
+                "[Join] Upload completed but no data and no public URL returned.",
+              );
+              throw new Error("Photo uploaded but could not retrieve its URL.");
+            }
+          }
+        } catch (uploadErr) {
+          console.error("[Join] Exception during photo upload:", uploadErr);
+          setError(
+            uploadErr instanceof Error
+              ? `Photo upload failed: ${uploadErr.message}`
+              : "Photo upload failed. Please try again.",
+          );
+          // Continue signup even if photo fails, but don't update avatar URL
+          avatarUrl = null;
+        }
+
+        if (avatarUrl) {
+          try {
+            console.log(
+              `[Join] Updating avatar URL for userId ${userId} to ${avatarUrl}`,
+            );
+            await updateAvatarUrlMutation.mutateAsync({
+              userId: userId,
+              avatarUrl: avatarUrl,
+            });
+            console.log(
+              `[Join] Avatar URL update successful for userId: ${userId}`,
+            );
+          } catch (avatarError) {
+            console.error(
+              `[Join] Error updating avatar URL in DB:`,
+              avatarError,
+            );
+            setError(
+              avatarError instanceof Error
+                ? `Failed to save avatar: ${avatarError.message}`
+                : "Failed to save avatar. Your photo was uploaded but not linked to your profile.",
+            );
+            // Continue signup, photo is uploaded but not linked.
+          }
+        }
+      } else {
+        console.log(
+          `[Join] No photo blob available to upload for userId: ${userId}`,
+        );
+      }
+
+      // Step 4: Sign in the user
+      console.log(
+        `[Join] Attempting to sign in user: ${participantData.email}`,
+      );
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: participantData.email,
         password: password,
       });
 
       if (signInError) {
-        console.error("Error signing in:", signInError);
-        // Continue anyway since we've updated the account
+        console.error("Error signing in after signup:", signInError);
+        // Don't block redirect if sign-in fails, user can sign in manually.
+        // setError(`Account created, but auto sign-in failed: ${signInError.message}. Please try logging in manually.`);
+      } else {
+        console.log(
+          `[Join] User ${participantData.email} signed in successfully.`,
+        );
       }
 
-      // Redirect to Olympics page
+      setIsLoading(false);
+      // Step 5: Redirect to Olympics page
+      console.log("[Join] Signup complete, redirecting to /olympics...");
       void router.push("/olympics");
     } catch (err) {
-      console.error("Error during signup:", err);
-      setError("An error occurred during signup. Please try again.");
+      // This is a fallback catch for unexpected errors not caught by specific steps.
+      console.error("Critical error during signup process:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred during signup. Please try again.",
+      );
       setIsLoading(false);
     }
   };

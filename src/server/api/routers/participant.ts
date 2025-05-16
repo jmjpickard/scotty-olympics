@@ -192,7 +192,7 @@ export const participantRouter = createTRPCRouter({
     }),
 
   // Update participant avatar URL
-  updateAvatarUrl: publicProcedure
+  updateAvatarUrl: publicProcedure // Remains public for now, can be changed to protected if join flow ensures auth before this call
     .input(
       z.object({
         userId: z.string(),
@@ -202,12 +202,13 @@ export const participantRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       try {
         console.log(
-          `[Participant] Updating avatar URL for user ${input.userId}`,
+          `[Participant] Updating avatar URL for user ${input.userId} to ${input.avatarUrl}`,
         );
-        console.log(`[Participant] New avatar URL: ${input.avatarUrl}`);
 
-        // Find participant by userId
-        let participant = await db.participant.findUnique({
+        // Find participant by userId.
+        // With the improved client-side flow, the participant record should exist
+        // and be correctly associated with the userId.
+        const participant = await db.participant.findUnique({
           where: {
             userId: input.userId,
           },
@@ -215,77 +216,26 @@ export const participantRouter = createTRPCRouter({
 
         if (!participant) {
           console.error(
-            `[Participant] No participant found with userId: ${input.userId}`,
+            `[Participant] No participant found with userId: ${input.userId}. This should not happen with the new flow.`,
           );
-
-          // Try to find the participant by looking up the user's email in Supabase
-          // and then finding the participant with that email
-          try {
-            console.log(
-              `[Participant] Attempting to find user in Supabase auth`,
-            );
-            const { data: userData, error: userError } =
-              await supabaseAdmin.auth.admin.getUserById(input.userId);
-
-            if (userError || !userData?.user?.email) {
-              console.error(
-                `[Participant] Error or no email found for user:`,
-                userError ?? "No email",
-              );
-            } else {
-              const email = userData.user.email;
-              console.log(
-                `[Participant] Found user email in Supabase: ${email}, looking for participant with this email`,
-              );
-
-              participant = await db.participant.findUnique({
-                where: {
-                  email: email,
-                },
-              });
-
-              if (participant) {
-                console.log(
-                  `[Participant] Found participant by email: ${participant.id}`,
-                );
-
-                // Update the userId field if it's not set
-                if (!participant.userId) {
-                  console.log(
-                    `[Participant] Updating participant with userId: ${input.userId}`,
-                  );
-                  participant = await db.participant.update({
-                    where: {
-                      id: participant.id,
-                    },
-                    data: {
-                      userId: input.userId,
-                    },
-                  });
-                }
-              }
-            }
-          } catch (lookupError) {
-            console.error(`[Participant] Error looking up user:`, lookupError);
-          }
-
-          // If we still don't have a participant, throw an error
-          if (!participant) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Participant not found",
-            });
-          }
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message:
+              "Participant record not found for this user ID. Cannot update avatar.",
+          });
         }
 
         console.log(
-          `[Participant] Found participant: ${participant.id}, current avatarUrl: ${participant.avatarUrl}`,
+          `[Participant] Found participant: ${participant.id}. Current avatarUrl: ${participant.avatarUrl}. New URL: ${input.avatarUrl}`,
         );
 
-        // Update avatar URL - use participant.id for the where clause to ensure we update the correct record
+        // Update avatar URL using the participant's unique ID (PK) for precision.
         const updatedParticipant = await db.participant.update({
           where: {
-            id: participant.id,
+            // Using participant.id (PK) is safer if userId is not guaranteed unique by itself in all scenarios,
+            // but Prisma's findUnique on a @unique field like userId should be reliable.
+            // Sticking to userId as per schema for consistency unless issues arise.
+            userId: input.userId,
           },
           data: {
             avatarUrl: input.avatarUrl,
@@ -293,17 +243,21 @@ export const participantRouter = createTRPCRouter({
         });
 
         console.log(
-          `[Participant] Successfully updated avatar URL for participant ${updatedParticipant.id}`,
+          `[Participant] Successfully updated avatar URL for participant ${updatedParticipant.id} (userId: ${input.userId})`,
         );
         return updatedParticipant;
       } catch (error) {
-        console.error("Error updating participant avatar URL:", error);
+        console.error(
+          `[Participant] Error updating participant avatar URL for userId ${input.userId}:`,
+          error,
+        );
         if (error instanceof TRPCError) {
           throw error;
         }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "An unexpected error occurred while updating avatar URL",
+          message:
+            "An unexpected error occurred while updating the avatar URL.",
         });
       }
     }),
